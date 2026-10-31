@@ -3,7 +3,10 @@ from functools import lru_cache
 import pygame
 
 from game.rendering import RenderPart
-from game.world.faction_art import faction_image
+from game.sprite_cache import prepared_sprite
+from game.world.faction_art import faction_image, FACTION_COLORS
+from game.settings import PLAYER_COLOR
+from game.world.capital_flags import flag_image, FLAG_RATE, FLAG_FRAMES
 from game.world.building_animation import ANIMATION_FRAMES, ANIMATION_RATE, building_frame
 from game.world.building_art import building_layout
 from game.world.construction_art import builder_parts, construction_frame
@@ -11,12 +14,17 @@ from game.world.construction_art import builder_parts, construction_frame
 
 @lru_cache(maxsize=192)
 def scaled_building(key, frame, size, training=False):
-    return pygame.transform.smoothscale(building_frame(key, frame, training), size)
+    return prepared_sprite(pygame.transform.smoothscale(building_frame(key, frame, training), size))
 
 
 @lru_cache(maxsize=96)
 def scaled_construction(key, stage, size):
-    return pygame.transform.smoothscale(construction_frame(key, stage), size)
+    return prepared_sprite(pygame.transform.smoothscale(construction_frame(key, stage), size))
+
+
+@lru_cache(maxsize=192)
+def building_flag(color, frame, size):
+    return prepared_sprite(pygame.transform.smoothscale(flag_image(color, 32, frame), size))
 
 
 def building_parts(building, camera, workers=True):
@@ -37,4 +45,9 @@ def building_parts(building, camera, workers=True):
     parts = [RenderPart(building.position[1], image, rectangle)]
     if workers and (not building.completed or building.builder_departure > 0):
         parts.extend(builder_parts(building, camera))
+    color = PLAYER_COLOR if building.owner=='blue' else FACTION_COLORS.get(building.owner,(160,160,145))
+    frame = int(building.animation_time*FLAG_RATE)%FLAG_FRAMES
+    flag = building_flag(color, frame, (max(8, round(28 * camera.zoom)), max(9, round(32 * camera.zoom))))
+    flag_area = flag.get_rect(bottomleft=(round(center.x+size[0]*camera.zoom*.22),round(center.y-18*camera.zoom)))
+    parts.append(RenderPart(building.position[1]+.1,flag,flag_area))
     return parts

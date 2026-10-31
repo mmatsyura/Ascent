@@ -30,39 +30,26 @@ class BarracksView:
 
     def draw_training(self, surface, area, state, total):
         panel = self.panel
-        compact = area.h < 238
-        row_height = 80 if compact else min(78, (area.h - 36 - 8 * (len(RECRUITS) - 1)) // len(RECRUITS))
-        for index, definition in enumerate(RECRUITS):
-            width = (area.w - 8 * (len(RECRUITS) - 1)) // len(RECRUITS) if compact else area.w
-            rectangle = pygame.Rect(area.x + index * (width + 8) if compact else area.x,
-                                    area.y if compact else area.y + index * (row_height + 8), width, row_height)
-            surface.blit(panel.pages.construction.project_background(rectangle.size, False, False), rectangle)
-            icon = panel.icons["army" if definition.key == "infantry" else definition.key]
-            if compact:
-                surface.blit(pygame.transform.smoothscale(icon, (30, 30)), (rectangle.x + 7, rectangle.y + 10))
-                panel.label(surface, definition.name, (rectangle.x + 44, rectangle.y + 7), "button", TEXT)
-                panel.label(surface, f"{int(definition.duration)} с", (rectangle.x + 44, rectangle.y + 29), "small", MUTED)
-                panel.button(surface, (rectangle.x + 7, rectangle.bottom - 29, rectangle.w - 14, 24), f"Набрати · {definition.price}", ("recruit", definition.key), enabled=panel.kingdom.gold >= definition.price and total < GARRISON_LIMIT)
-                continue
-            surface.blit(icon, (rectangle.x + 8, rectangle.centery - 20))
-            panel.label(surface, definition.name, (rectangle.x + 57, rectangle.y + 8), "title", TEXT)
-            detail = {"infantry": "Загін із 6 бійців", "tank": "1 танк", "patriot": "ППО · 35% · постріл / 4 с"}[definition.key]
-            description = f"{int(definition.duration)} с · {detail}"
-            panel.label(surface, description, (rectangle.x + 57, rectangle.y + 33), "small", MUTED, width=area.w - 211)
-            panel.button(surface, (rectangle.right - 137, rectangle.centery - 17, 126, 34), f"Набрати · {definition.price}", ("recruit", definition.key), enabled=panel.kingdom.gold >= definition.price and total < GARRISON_LIMIT)
-        vertical = area.y + (row_height + 8 if compact else len(RECRUITS) * (row_height + 8))
+        self.page = max(0, min(1, self.page))
+        definitions = RECRUITS[self.page*2:self.page*2+2]
+        row_height = max(48, min(76, (area.h-75)//2))
+        for index, definition in enumerate(definitions):
+            rectangle = pygame.Rect(area.x, area.y+index*(row_height+6),area.w,row_height)
+            surface.blit(panel.pages.construction.project_background(rectangle.size,False,False),rectangle)
+            icon = panel.icons['army' if definition.key in ('infantry','anti_tank') else definition.key]
+            surface.blit(pygame.transform.smoothscale(icon,(32,32)),(rectangle.x+7,rectangle.centery-16))
+            panel.label(surface,definition.name,(rectangle.x+47,rectangle.y+5),'button',TEXT)
+            detail = {'infantry':'6 бійців','anti_tank':'Ракетники проти броні','tank':'Бронетехніка','patriot':'ППО · 35% · 7 с'}[definition.key]
+            panel.label(surface,f'{int(definition.duration)} с · {detail}',(rectangle.x+47,rectangle.y+28),'small',MUTED,width=area.w-190)
+            panel.button(surface,(rectangle.right-126,rectangle.centery-15,120,30),f'Набрати · {definition.price}',('recruit',definition.key),enabled=panel.kingdom.gold>=definition.price and total<GARRISON_LIMIT)
+        y = area.y+2*(row_height+6)
         if state.queue:
             definition = state.queue[0]
-            seconds = max(0, int(definition.duration - state.progress + .999))
-            status = f"{definition.name} · {seconds} с" if seconds else "Звільніть вихід із казарм"
-            panel.label(surface, status, (area.x + 2, vertical), "small", ACCENT, width=area.w - 110)
-            bar = pygame.Rect(area.x + 2, vertical + 22, area.w - 110, 4)
-            pygame.draw.rect(surface, (17, 27, 29), bar, border_radius=2)
-            ratio = state.progress / definition.duration
-            pygame.draw.rect(surface, (130, 170, 152), (bar.x, bar.y, round(bar.w * ratio), bar.h), border_radius=2)
-            panel.button(surface, (area.right - 97, vertical, 96, 28), "Скасувати", ("recruit_cancel",))
-        else:
-            panel.label(surface, "Казарми готові до підготовки.", (area.x + 2, vertical + 5), "small", MUTED)
+            panel.label(surface,f'{definition.name} · {max(0,int(definition.duration-state.progress))} с',(area.x,y),'small',ACCENT,width=area.w-110)
+            panel.button(surface,(area.right-100,y,98,24),'Скасувати',('recruit_cancel',))
+        panel.button(surface,(area.x,area.bottom-25,35,24),'‹',('barracks_page',-1),enabled=self.page>0)
+        panel.label(surface,f'{self.page+1} / 2',(area.centerx-18,area.bottom-21),'small',MUTED)
+        panel.button(surface,(area.right-35,area.bottom-25,35,24),'›',('barracks_page',1),enabled=self.page<1)
 
     def draw_roster(self, surface, area, state):
         panel = self.panel

@@ -80,29 +80,49 @@ def generate_terrain():
 
     texture = (ground_noise - .5) * 9 + (ridge_noise - .5) * 3
     colors = np.empty((height, width, 3), dtype=np.float32)
-    meadow_color = np.array([144, 158, 100], dtype=np.float32)
-    colors[:] = meadow_color + ((broad_noise - .5) * 22 + texture)[..., None]
-    colors -= forest_strength[..., None] * np.array([30, 25, 12])
+    meadow_color = np.array([133, 153, 99], dtype=np.float32)
+    colors[:] = meadow_color + ((broad_noise - .5) * 29 + texture)[..., None]
+    dry_grass = np.clip((ground_noise - .48) * 2.4, 0, .6) * (1 - forest_strength)
+    colors += dry_grass[..., None] * np.array([17, 5, -5])
+    meadow_variation = np.sin(horizontal * 87 + broad_noise * 9) * np.sin(vertical * 71 + ground_noise * 6)
+    meadow_variation *= (1 - forest_strength) * (1 - sand_blend)
+    colors += meadow_variation[..., None] * np.array([2.8, 3.2, 1.4])
+    colors -= forest_strength[..., None] * np.array([27, 26, 11])
     litter = np.clip((ground_noise - .52) * 3, 0, 1) * forest_strength
     colors += litter[..., None] * np.array([12, -3, -5])
     dry_sand = np.clip(water_distance / .0025, 0, 1)
-    sand_color = np.array([171, 166, 126]) + dry_sand[..., None] * np.array([41, 32, 24])
+    sand_color = np.array([166, 159, 119]) + dry_sand[..., None] * np.array([54, 44, 34])
     sand_ripples = np.sin(vertical * height * .8 + ground_noise * 9) * 1.4
     sand_color += (texture * .55 + sand_ripples)[..., None]
+    wet_shore = np.exp(-np.maximum(water_distance, 0) / .0014)
+    sand_color -= wet_shore[..., None] * np.array([12, 10, 6])
     colors = colors * (1 - sand_blend[..., None]) + sand_color * sand_blend[..., None]
 
     depth = np.clip(-water_distance / .038, 0, 1)
-    water_color = np.array([62, 136, 143]) + depth[..., None] * np.array([-43, -82, -68])
+    water_color = np.array([58, 139, 145]) + depth[..., None] * np.array([-42, -88, -76])
+    shallows = np.clip(1 - depth * 6, 0, 1)
+    caustics = (np.sin(horizontal * width * .43 + ground_noise * 22) + np.sin(vertical * height * .51 + ridge_noise * 17)) * .9
+    water_color += (caustics * shallows)[..., None] * np.array([1.2, 1.8, 1.5])
     water_color += texture[..., None] * .3
+    shoreline_glow = np.exp(-np.abs(water_distance) / .0018)
+    water_color += shoreline_glow[..., None] * np.array([3, 6, 4])
     colors[biomes == Biome.WATER] = water_color[biomes == Biome.WATER]
     foam_mask = (water_distance <= 0) & (water_distance > -.00065)
     colors[foam_mask] = colors[foam_mask] * .55 + np.array([178, 215, 199]) * .45
 
     mountain_height, rock_texture = create_mountain_relief(width, height, elevation, random)
-    slope_y, slope_x = np.gradient(mountain_height)
+    detail_random = np.random.default_rng(MAP_SEED + 871)
+    stone_detail = smooth_noise(width, height, 690, 480, detail_random)
+    stone_ridges = 1 - np.abs(stone_detail * 2 - 1)
+    textured_height = mountain_height + stone_ridges * np.clip(elevation * .014, 0, .009)
+    slope_y, slope_x = np.gradient(textured_height)
     lighting = np.clip((-slope_x * 32 - slope_y * 24), -.62, .62)
     rock_color = np.array([126, 130, 119]) + lighting[..., None] * np.array([94, 94, 91])
-    rock_color += (rock_texture - .5)[..., None] * 20
+    rock_color += ((rock_texture - .5) * 27 + (stone_detail - .5) * 8)[..., None]
+    creases = np.clip((.48 - rock_texture) * 2, 0, 1)
+    rock_color -= (creases * np.clip(elevation * 2, 0, 1))[..., None] * np.array([12, 14, 16])
+    cool_shadow = np.clip(-lighting, 0, 1)[..., None]
+    rock_color += cool_shadow * np.array([-7, 0, 9])
     foothills = np.clip((elevation - .12) / .13, 0, 1)[..., None]
     rock_color = np.array([111, 128, 99]) * (1 - foothills) + rock_color * foothills
     snow = np.clip((mountain_height - .67 + ground_noise * .08) / .16, 0, 1)[..., None]

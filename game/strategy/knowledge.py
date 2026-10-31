@@ -5,6 +5,7 @@ import pygame
 
 from game.settings import CAPITAL_VISION_RADIUS, CITY_VISION_RADIUS
 from game.world.biomes import Biome
+from game.world.country import Country
 
 
 @dataclass
@@ -17,13 +18,14 @@ class Observation:
 
 
 def strength(unit):
-    return (0.5 if unit.is_patriot else 2.4 if unit.is_tank else 1) * max(.15, unit.health / 100)
+    return (0.5 if unit.is_patriot else 2 if unit.is_anti_tank else 2.4 if unit.is_tank else 1) * max(.15, unit.health / 100) * (.35+.65*unit.readiness/100)
 
 
 class Knowledge:
     def __init__(self, app, owner):
         self.app = app
         self.owner = owner
+        self.country = Country(app.terrain,app.city_map,owner)
         self.sources = {}
         self.cities = {}
         self.contacts = {}
@@ -33,6 +35,11 @@ class Knowledge:
 
     def refresh(self, elapsed, fleet):
         self.elapsed = elapsed
+        self.country.update(self.app.city_map)
+        for row in range(0,self.country.field.shape[0],32):
+            for column in range(0,self.country.field.shape[1],32):
+                if self.country.field[row,column]>=0:
+                    self.explored.add((column//32,row//32))
         sources = [(city.position, CAPITAL_VISION_RADIUS if city.capital else CITY_VISION_RADIUS, True)
                    for city in self.app.city_map.cities if city.owner == self.owner]
         sources.extend((unit.position, unit.vision_radius, False) for unit in self.app.units if unit.owner == self.owner)
@@ -58,11 +65,14 @@ class Knowledge:
         present = set(self.app.units) | set(self.app.buildings.buildings)
         for memory in (self.contacts, self.buildings):
             for target, observation in tuple(memory.items()):
-                if elapsed - observation.time > 45 or (self.is_visible(observation.position) and
+                if target.owner==self.owner or elapsed - observation.time > 45 or (self.is_visible(observation.position) and
                         (target not in present or not self.is_visible(target.position))):
                     del memory[target]
 
     def is_visible(self, point):
+        x,y=int(point[0]//8),int(point[1]//8)
+        if 0<=y<self.country.vision.shape[0] and 0<=x<self.country.vision.shape[1] and self.country.vision[y,x]>=0:
+            return True
         for origin, radius, forest_blocked in self.sources.get((int(point[0]//256), int(point[1]//256)), ()):
             offset = pygame.Vector2(point) - origin
             if offset.length_squared() > radius**2:

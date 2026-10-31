@@ -2,6 +2,7 @@ from functools import lru_cache
 import math
 
 import pygame
+from game.sprite_cache import prepared_sprite
 from game.world.badge_art import badge_background
 
 from game.world.tank_geometry import TankCanvas
@@ -68,13 +69,20 @@ def draw_turret(canvas, angle):
     canvas.box((47, 78, 47), (-15, 10, 1, 1), 29, 48, angle)
 
 
-@lru_cache(maxsize=96)
+@lru_cache(maxsize=128)
+def hull_faces(angle):
+    canvas = TankCanvas()
+    draw_hull(canvas, angle)
+    return tuple(canvas.faces)
+
+
+@lru_cache(maxsize=128)
 def hull_layer(angle, phase):
     canvas = TankCanvas()
     shadow = [(math.cos(index * math.tau / 16) * 39, math.sin(index * math.tau / 16) * 43, 0) for index in range(16)]
     canvas.polygon((18, 30, 23, 35), shadow, angle, underlay=True)
     draw_tracks(canvas, angle, phase)
-    draw_hull(canvas, angle)
+    canvas.faces.extend(hull_faces(angle))
     return canvas.finish(256)
 
 
@@ -96,7 +104,7 @@ def tank_source(hull_step, turret_step, phase=0, selected=False):
 
 @lru_cache(maxsize=512)
 def tank_sprite(size, hull_step, turret_step, phase=0, selected=False):
-    return pygame.transform.smoothscale(tank_source(hull_step, turret_step, phase, selected), (size, size))
+    return prepared_sprite(pygame.transform.smoothscale(tank_source(hull_step, turret_step, phase, selected), (size, size)))
 
 
 @lru_cache(maxsize=48)
@@ -107,4 +115,4 @@ def tank_badge(size, selected=False):
     image.blit(silhouette, silhouette.get_rect(center=(80, 84)))
     if selected:
         image.fill((180, 180, 180, 255), special_flags=pygame.BLEND_RGBA_MULT)
-    return pygame.transform.smoothscale(image, (size, size))
+    return prepared_sprite(pygame.transform.smoothscale(image, (size, size)))

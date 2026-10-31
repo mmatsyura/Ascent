@@ -24,6 +24,7 @@ class DroneFleet:
         self.events = []
         self.production = DroneProduction(self)
         self.combat = None
+        self.air_routes = None
 
     def valid_airport(self, airport):
         return airport in self.buildings.buildings and airport.owner == self.owner and airport.completed and airport.definition.key == "airport"
@@ -63,8 +64,15 @@ class DroneFleet:
         while remaining > 1e-8:
             step = min(.1, remaining)
             for drone in tuple(self.drones):
+                previous_position = drone.position
                 handled = self.combat.advance(drone, step) if self.combat is not None else False
                 transitions = [] if handled else advance_drone(drone, step)
+                if self.air_routes is not None and drone.controllable and not self.air_routes.clear(previous_position,drone.position):
+                    drone.position = previous_position
+                    if drone.route:
+                        offset = pygame.Vector2(drone.route[0])-drone.position
+                        if offset.length_squared():
+                            drone.heading = pygame.Vector2(0,-1).angle_to(offset)%360
                 if transitions:
                     self.revision += 1
                     self.events.extend((drone, state) for state in transitions)

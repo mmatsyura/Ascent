@@ -6,10 +6,12 @@ import pygame
 from game.settings import CITY_VISION_RADIUS, FOG_EDGE_WIDTH, MAP_SEED, TERRAIN_SCALE, WORLD_HEIGHT, WORLD_WIDTH
 from game.world.biomes import Biome
 from game.world.noise import smooth_noise
+from game.world.fog_geometry import border_distance, city_connected_mask
 
 
 class Country:
-    def __init__(self, terrain, cities):
+    def __init__(self, terrain, cities, owner="blue"):
+        self.owner = owner
         self.step = 32
         self.grid_size = 8
         self.revision = 0
@@ -54,13 +56,13 @@ class Country:
         return values * (reach * 2 / 255) - reach
 
     def update(self, cities):
-        key = tuple((tuple(city.position), city.owner) for city in cities.cities)
+        key = tuple((tuple(city.position), city.owner==self.owner) for city in cities.cities)
         if key == self.key:
             return False
         self.key = key
         self.control_revision = -1
         self.prepare_geometry(cities)
-        owners = np.array([city.owner == "blue" for city in cities.cities], dtype=bool)
+        owners = np.array([city.owner == self.owner for city in cities.cities], dtype=bool)
         shape = (WORLD_HEIGHT // self.step, WORLD_WIDTH // self.step)
         own_distance = self.distances[owners].min(axis=0) if owners.any() else np.full(shape, 1e12, dtype=np.float32)
         other_distance = self.distances[~owners].min(axis=0) if (~owners).any() else np.full(shape, 1e12, dtype=np.float32)
@@ -75,10 +77,11 @@ class Country:
         if not owners.any():
             field.fill(-1e6)
         field += self.border_noise * np.clip(1 - np.abs(field) / 240, 0, 1)
-        controlled = field >= 0
+        controlled = city_connected_mask(field>=0,[city.position for city in cities.cities if city.owner==self.owner],self.step)
         land_owned = int(self.land_weights[controlled].sum())
         self.fraction = land_owned / max(1, self.land_total)
         self.area = round(land_owned * TERRAIN_SCALE ** 2 / 4096)
+        field=border_distance(controlled,self.step,FOG_EDGE_WIDTH*2+self.step)
         self.field = self.enlarge(field)
         self.vision = self.field.copy()
         forest_limit = self.forest_limit.copy()

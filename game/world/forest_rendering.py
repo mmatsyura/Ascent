@@ -9,6 +9,8 @@ from game.settings import FOREST_CLEAR_RADIUS, FOREST_FADE_RADIUS
 from game.world.tank_tracks import trail_part
 from game.world.reveals import faded_parts
 from game.world.screen_regions import dirty_regions
+from game.world.units import detail_blend
+from game.sprite_cache import prepared_sprite
 
 
 class ForestRendering:
@@ -27,6 +29,9 @@ class ForestRendering:
         self.ground_key = None
         self.tree_layer_key = None
         self.tree_layers = {}
+        self.faded_images = OrderedDict()
+        self.projected_key = None
+        self.projected_trees = []
 
     def nearby_trees(self, area):
         key = tuple(area)
@@ -60,6 +65,9 @@ class ForestRendering:
 
     def update_fade_targets(self, units, camera):
         self.fade_targets = {}
+        detail = detail_blend(camera.zoom) if camera is not None else 1
+        if detail <= 0:
+            return
         reach = FOREST_FADE_RADIUS
         visible = camera.visible_area.inflate(reach * 3, reach * 3) if camera is not None else None
         groups = {}
@@ -84,14 +92,14 @@ class ForestRendering:
             if strength <= 0:
                 continue
             strength = strength * strength * (3 - 2 * strength)
-            self.fade_targets[tree_id] = 255 - 153 * strength
+            self.fade_targets[tree_id] = 255 - 153 * strength * detail
             self.fading_trees.setdefault(tree_id, [tree, 255.0])
 
     def tree_image(self, tree, zoom):
         size = (max(1, round(tree.image.get_width() * zoom)), max(1, round(tree.image.get_height() * zoom)))
         key = (id(tree.image), size)
         if key not in self.scaled_images:
-            self.scaled_images[key] = pygame.transform.smoothscale(tree.image, size)
+            self.scaled_images[key] = prepared_sprite(pygame.transform.smoothscale(tree.image, size))
             if len(self.scaled_images) > 256:
                 self.scaled_images.popitem(last=False)
         else:
@@ -99,17 +107,29 @@ class ForestRendering:
         image = self.scaled_images[key]
         state = self.fading_trees.get(id(tree))
         if state is not None:
-            image = image.copy()
-            image.set_alpha(round(state[1]))
+            opacity = round(state[1])
+            fade_key = key, opacity
+            faded = self.faded_images.get(fade_key)
+            if faded is None:
+                faded = image.copy()
+                faded.set_alpha(opacity, pygame.RLEACCEL)
+                self.faded_images[fade_key] = faded
+                if len(self.faded_images) > 512:
+                    self.faded_images.popitem(last=False)
+            else:
+                self.faded_images.move_to_end(fade_key)
+            image = faded
         return image
 
     def world_area(self, rectangle, camera):
         corner = camera.screen_to_world(rectangle.topleft)
         return pygame.Rect(math.floor(corner.x), math.floor(corner.y), math.ceil(rectangle.w / camera.zoom) + 2, math.ceil(rectangle.h / camera.zoom) + 2)
 
-    def draw(self, screen, camera, terrain, units, buildings=(), city_map=None, visibility=None, ground_parts=()):
+    def draw(self, screen, camera, terrain, units, buildings=(), city_map=None, visibility=None, ground_parts=(), draw_background=False):
         regions = []
         visible_parts = []
+        badges = []
+        strategic = detail_blend(camera.zoom) <= 0
         screen_area = screen.get_rect()
         visible_world = camera.visible_area.inflate(400, 400)
         reveals = getattr(city_map, "reveals", None)
@@ -127,6 +147,9 @@ class ForestRendering:
         if city_map is not None:
             for part in city_map.draw_parts(screen, camera):
                 if screen_area.colliderect(part.rectangle):
+                    if strategic:
+                        badges.append((part.image, part.rectangle))
+                        continue
                     visible_parts.append((part, part.rectangle))
                     regions.append(part.rectangle.inflate(4, 4).clip(screen_area))
         for unit in units:
@@ -138,6 +161,9 @@ class ForestRendering:
             for part in parts:
                 rectangle = part.rectangle
                 if not screen_area.colliderect(rectangle):
+                    continue
+                if strategic:
+                    badges.append((part.image, rectangle))
                     continue
                 visible_parts.append((part, rectangle))
                 regions.append(rectangle.inflate(3, 3).clip(screen_area))
@@ -153,6 +179,14 @@ class ForestRendering:
                     visible_parts.append((part, part.rectangle))
                     regions.append(part.rectangle.inflate(6, 6).clip(screen_area))
 
+        if not visible_parts and not self.fading_trees:
+            if draw_background:
+                self.world_renderer.draw_scene(screen, camera, terrain)
+            screen.blits(badges, doreturn=False)
+            self.still_key = None
+            self.still_images = []
+            return
+
         visible_parts.sort(key=lambda item: item[0].depth)
         camera_key = (camera.position.x, camera.position.y, camera.zoom, camera.viewport_size, getattr(terrain, "revision", 0))
         tree_key = tuple((tree_id, round(state[1])) for tree_id, state in self.fading_trees.items())
@@ -164,6 +198,7 @@ class ForestRendering:
         frame_key = (camera_key, tree_key, part_key)
         if frame_key == self.still_key and self.still_frame is not None:
             screen.blit(self.still_frame, (0, 0))
+            screen.blits(badges, doreturn=False)
             return
         for tree, opacity in self.fading_trees.values():
             bounds = tree.bounds
@@ -181,6 +216,25 @@ class ForestRendering:
                 self.ground_frame.fill((0, 0, 0))
                 camera.draw(self.ground_frame, terrain)
                 self.ground_key = camera_key
+            if sum(region.w * region.h for region in regions) >= screen_area.w * screen_area.h * .38:
+                screen.blit(self.ground_frame, (0, 0))
+                if self.projected_key != camera_key:
+                    self.projected_trees = []
+                    for tree in self.nearby_trees(self.world_area(screen_area, camera)):
+                        position = camera.world_to_screen(tree.position) - pygame.Vector2(tree.anchor) * camera.zoom
+                        self.projected_trees.append((tree, (round(position.x), round(position.y))))
+                    self.projected_key = camera_key
+                layers = [(tree.position[1], 0, (self.tree_image(tree, camera.zoom), position)) for tree, position in self.projected_trees]
+                layers.extend((part.depth, 1, (part.image, rectangle)) for part, rectangle in visible_parts)
+                layers.sort(key=lambda layer: (layer[0], layer[1]))
+                screen.blits([(image, position, None, pygame.BLEND_ALPHA_SDL2) for _, _, (image, position) in layers], doreturn=False)
+                self.still_key = None
+                self.still_images = []
+                self.camera_key = camera_key
+                screen.blits(badges, doreturn=False)
+                return
+            if draw_background:
+                self.world_renderer.draw_scene(screen, camera, terrain)
             previous_clip = screen.get_clip()
             for region in regions:
                 screen.set_clip(region)
@@ -197,8 +251,10 @@ class ForestRendering:
                 layers = self.tree_layers[region_key].copy()
                 layers.extend((part.depth, 1, (part.image, rectangle)) for part, rectangle in visible_parts if region.colliderect(rectangle))
                 layers.sort(key=lambda layer: (layer[0], layer[1]))
-                screen.blits([layer[2] for layer in layers], doreturn=False)
+                screen.blits([(image, position, None, pygame.BLEND_ALPHA_SDL2) for _, _, (image, position) in layers], doreturn=False)
             screen.set_clip(previous_clip)
+        elif draw_background:
+            self.world_renderer.draw_scene(screen, camera, terrain)
 
         if regions and camera_key == self.camera_key and not any(unit.route or any(member.walking for member in unit.members) for unit in units):
             if self.still_frame is None or self.still_frame.get_size() != screen.get_size():
@@ -211,3 +267,4 @@ class ForestRendering:
             self.still_key = None
             self.still_images = []
         self.camera_key = camera_key
+        screen.blits(badges, doreturn=False)

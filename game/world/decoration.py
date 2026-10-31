@@ -27,7 +27,10 @@ def decorate_terrain(surface, biomes, forest_strength, random):
             woodland = forest_strength[row, column]
             grass_color = (110, 130, 79) if woodland < .5 else (96, 118, 76)
             for offset in [-3, 0, 3]:
-                pygame.draw.line(surface, grass_color, (world_x + offset, world_y + 3), (world_x + offset - 2, world_y - int(random.integers(2, 5))), 1)
+                height = int(random.integers(2, 5))
+                lean = (world_x + world_y + offset) % 5 - 2
+                tone = tuple(channel + (offset + 3) * 2 for channel in grass_color)
+                pygame.draw.line(surface, tone, (world_x + offset // 2, world_y + 2), (world_x + offset + lean, world_y - height), 1)
             if random.random() < .07 * (1 - woodland):
                 pygame.draw.circle(surface, (205, 200, 147), (world_x - 2, world_y - 4), 2)
             if random.random() < woodland * .4:

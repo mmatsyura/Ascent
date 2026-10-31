@@ -1,3 +1,4 @@
+from game.ui.tactical_marks import draw_selection, order_marker
 import math
 
 import pygame
@@ -247,6 +248,9 @@ class UnitControl:
         detailed = camera is None or detail_blend(camera.zoom) > 0
         for unit in self.units:
             interval = 1 / (20 if unit.route else 12) if detailed and (visible is None or visible.collidepoint(unit.position)) else 1 / 6
+            if unit.owner!="blue" and (not detailed or visible is not None and not visible.collidepoint(unit.position)):
+                interval=.5
+            unit.recoil = max(0,unit.recoil-elapsed_seconds*6)
             previous_position = unit.position
             if unit.is_patriot:
                 unit.update_deployment(elapsed_seconds)
@@ -296,11 +300,12 @@ class UnitControl:
         self.soldier_navigation.member_paths.update(self.units)
 
     def draw_orders(self, screen, camera):
+        draw_selection(screen, camera, self.selected)
         if self.feedback_time:
             for point in dict.fromkeys(tuple(point) for point in self.order_feedback):
                 position = camera.world_to_screen(point)
-                radius = round(5 + (1 - self.feedback_time / .8) * 12)
-                pygame.draw.circle(screen, (157, 204, 177), (round(position.x), round(position.y)), radius, 1)
+                image = order_marker(round(max(0, min(1, 1 - self.feedback_time / .8)) * 31))
+                screen.blit(image, image.get_rect(center=(round(position.x), round(position.y))))
         projected = {}
         segments = set()
         endpoints = set()
@@ -323,7 +328,7 @@ class UnitControl:
                     key = first, last
                     if key not in segments:
                         segments.add(key)
-                        pygame.draw.line(screen, (137, 184, 215), first, last, 1)
+                        pygame.draw.aaline(screen, (129, 177, 190), first, last)
                 end = points[-1]
                 if end not in endpoints:
                     pygame.draw.circle(screen, (179, 208, 217), (round(end[0]), round(end[1])), 4, 1)

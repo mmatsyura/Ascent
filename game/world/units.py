@@ -36,7 +36,16 @@ class UnitToken:
     member_blend: float = 1
     planning_target: tuple[float, float] | None = None
     health: float = 100
+    readiness: float = 100
+    source_barracks: object = None
+    last_combat: float = -100
+    next_shot: float = 0
+    recoil: float = 0
     profile_anchor: tuple[float, float] | None = None
+
+    @property
+    def is_anti_tank(self):
+        return False
 
     @property
     def is_tank(self):

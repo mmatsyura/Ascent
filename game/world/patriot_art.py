@@ -2,6 +2,7 @@ from functools import lru_cache
 import math
 
 import pygame
+from game.sprite_cache import prepared_sprite
 
 from game.world.badge_art import badge_background
 from game.world.tank_geometry import TankCanvas
@@ -130,7 +131,7 @@ def patriot_source(angle, deployment_step, phase=0, selected=False):
 
 @lru_cache(maxsize=384)
 def patriot_sprite(size, angle, deployment_step, phase=0, selected=False):
-    return pygame.transform.smoothscale(patriot_source(angle, deployment_step, phase, selected), (size, size))
+    return prepared_sprite(pygame.transform.smoothscale(patriot_source(angle, deployment_step, phase, selected), (size, size)))
 
 
 @lru_cache(maxsize=48)
@@ -140,4 +141,4 @@ def patriot_badge(size, selected=False):
     image.blit(sprite, sprite.get_rect(center=(80, 96)))
     if selected:
         image.fill((180, 180, 180, 255), special_flags=pygame.BLEND_RGBA_MULT)
-    return pygame.transform.smoothscale(image, (size, size))
+    return prepared_sprite(pygame.transform.smoothscale(image, (size, size)))

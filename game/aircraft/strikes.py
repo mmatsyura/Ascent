@@ -93,7 +93,15 @@ class DroneStrikes:
             return False
         if self.visibility.is_visible(drone.attack_target.position):
             drone.attack_position = tuple(drone.attack_target.position)
-        drone.route = [drone.attack_position]
+        if self.fleet.air_routes is not None:
+            if not drone.route or self.visibility.is_visible(drone.attack_target.position) and pygame.Vector2(drone.route[-1]).distance_squared_to(drone.attack_position)>96**2:
+                drone.route = self.fleet.air_routes.route(drone.position,drone.attack_position)
+        else:
+            drone.route = [drone.attack_position]
+        if self.fleet.air_routes is not None and not self.fleet.air_routes.dry(drone.attack_position):
+            drone.attack_target=None
+            drone.route.clear()
+            return False
         offset = pygame.Vector2(drone.attack_position) - drone.position
         if drone.state == 'cruising' and offset.length_squared() <= 24 ** 2:
             if offset.length_squared() > 25:

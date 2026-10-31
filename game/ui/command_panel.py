@@ -6,7 +6,7 @@ from game.ui.command_icons import create_command_icons
 from game.ui.building_icons import create_building_icons
 from game.ui.command_pages import CommandPages
 from game.ui.fonts import fit_text, ui_font
-from game.ui.theme import ACCENT, BORDER, MUTED, TEXT, panel_surface
+from game.ui.theme import ACCENT, BORDER, MUTED, TEXT, panel_surface, draw_button
 from game.world.tank_art import tank_badge
 from game.ui.transitions import SmoothLayer
 from game.world.patriot_art import patriot_badge
@@ -60,6 +60,7 @@ class CommandPanel:
         self.active_section = None
         self.collapsed = False
         self.paused = False
+        self.on_pause = None
         self.pointer = pygame.Vector2(-1, -1)
         self.pressed_action = None
         self.pointer_button = None
@@ -131,13 +132,9 @@ class CommandPanel:
         global_area = rectangle.move(round(self.origin.x), round(self.origin.y))
         hovered = enabled and global_area.collidepoint(self.pointer)
         pressed = action is not None and action == self.pressed_action
-        color = (43, 65, 76) if active else ((48, 58, 47) if hovered else (28, 37, 33))
-        if pressed:
-            color = (21, 33, 33)
-        pygame.draw.rect(surface, (6, 12, 12), rectangle.move(0, 2), border_radius=3)
-        pygame.draw.rect(surface, color, rectangle, border_radius=3)
-        pygame.draw.rect(surface, ACCENT if active or hovered else BORDER, rectangle, 1, border_radius=3)
-        pygame.draw.line(surface, (121, 124, 91) if enabled else (62, 70, 58), (rectangle.x + 3, rectangle.y + 2), (rectangle.right - 4, rectangle.y + 2))
+        draw_button(surface, rectangle, hovered or active, pressed)
+        if active:
+            pygame.draw.rect(surface, ACCENT, (rectangle.x + 2, rectangle.y + 5, 2, max(1, rectangle.h - 10)), border_radius=1)
         if icon:
             surface.blit(pygame.transform.smoothscale(self.icons[icon], (24, 24)), (rectangle.x + 9, rectangle.centery - 12))
         text = fit_text(self.fonts["button"], text, rectangle.w - (48 if icon else 12))
@@ -356,7 +353,8 @@ class CommandPanel:
         elif command == "close":
             self.active_section = None
         elif command == "pause":
-            self.paused = not self.paused
+            if self.on_pause is not None:self.on_pause()
+            else:self.paused = not self.paused
         elif command == "capital":
             self.focus(self.city_map.player_capital.position)
         elif command == "collapse":

@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from dataclasses import replace
 
 import pygame
 
@@ -19,6 +20,7 @@ from game.ui.map_hints import MapHints
 from game.ui.unit_rename import UnitRename
 from game.unit_control import UnitControl
 from game.world.terrain import Terrain
+from game.world.water_light import WaterLight
 from game.world.cities import CityMap
 from game.world.forest_rendering import ForestRendering
 from game.world.visibility import Visibility, VisionSource
@@ -45,11 +47,13 @@ from game.ui.construction_status import ConstructionStatus
 from game.world.country import Country
 from game.world.deployment import starting_army
 from game.ui.victory import Victory
+from game.ui.game_menu import GameMenu
+from game.ui.menu_view import loading_screen
 from game.strategy.director import Strategy
 
 
 class Application:
-    def __init__(self):
+    def __init__(self, start_immediately=False, display_preferences=None):
         argument_parser = argparse.ArgumentParser()
         argument_parser.add_argument("--windowed", action="store_true")
         argument_parser.add_argument("--capture", type=Path)
@@ -60,12 +64,16 @@ class Application:
         pygame.init()
         self.fullscreen = not self.arguments.windowed
         self.window_size = WINDOW_SIZE
+        if display_preferences is not None:
+            self.fullscreen,self.window_size=display_preferences
         self.screen = self.create_display()
         pygame.display.set_caption("Ascent")
         self.screen.fill((19, 39, 47))
         pygame.display.flip()
 
+        loading_screen(self.screen)
         self.terrain = Terrain()
+        self.water_light = WaterLight(self.terrain)
         self.kingdom = Kingdom()
         self.city_map = CityMap(self.terrain)
         self.profile = PlayerProfile()
@@ -156,8 +164,13 @@ class Application:
         self.intelligence.on_report = lambda report: self.soundscape.information() if self.focused else False
         self.interface_seconds = 1 / 60
         self.strategy = Strategy(self)
+        self.building_operations = self.strategy.operations
         self.victory = Victory()
         self.victory.on_continue = self.soundscape.click
+        self.restart_requested=False
+        self.menu=GameMenu(self)
+        self.command_panel.on_pause=self.menu.pause
+        if start_immediately:self.menu.begin()
 
     def refresh_visibility(self):
         self.country.update(self.city_map)
@@ -312,7 +325,7 @@ class Application:
             self.construction.cancel()
 
     def pointer_over_ui(self, position):
-        return self.hud.panel_area.collidepoint(position) or self.command_panel.contains(position) or self.minimap.panel_area.collidepoint(position)
+        return self.hud.panel_area.collidepoint(position) or self.command_panel.contains(position) or self.minimap.panel_area.collidepoint(position) or self.building_operations.contains(position)
 
     def handle_key(self, key):
         if key == pygame.K_ESCAPE and self.construction.active:
@@ -326,10 +339,7 @@ class Application:
         elif key == pygame.K_x and self.drone_control.selected is not None:
             self.drone_fleet.hold(self.drone_control.selected)
         elif key == pygame.K_ESCAPE:
-            if self.unit_control.mode or self.unit_control.selected:
-                self.unit_control.cancel(deselect=True)
-            else:
-                self.running = False
+            self.menu.pause()
         elif key == pygame.K_x and self.unit_control.selected:
             self.unit_control.stop()
         elif key == pygame.K_HOME:
@@ -356,18 +366,23 @@ class Application:
             elif event.type == pygame.WINDOWFOCUSLOST:
                 self.focused = False
                 self.cancel_drag()
+                if not self.menu.active:self.menu.pause()
             elif event.type == pygame.WINDOWFOCUSGAINED:
                 self.focused = True
             elif event.type == pygame.VIDEORESIZE and not self.fullscreen:
                 self.window_size = (max(800, event.w), max(600, event.h))
                 self.screen = self.create_display()
                 self.refresh_layout()
+            elif self.menu.active:
+                self.menu.handle(event)
             elif self.victory.active:
                 self.victory.handle_event(event)
             elif self.rename_dialog.active:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     self.soundscape.click()
                 self.rename_dialog.handle_event(event)
+            elif self.building_operations.handle(event):
+                continue
             elif event.type == pygame.KEYDOWN:
                 self.handle_key(event.key)
             elif event.type == pygame.MOUSEWHEEL:
@@ -375,6 +390,10 @@ class Application:
                 if not self.command_panel.contains(pointer):
                     self.camera.change_zoom(pointer, event.y)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 2, 3):
+                if self.building_operations.selected is not None and not self.building_operations.contains(event.pos):
+                    self.building_operations.selected=None
+                if self.building_operations.contains(event.pos):
+                    continue
                 if self.command_panel.contains(event.pos):
                     self.cancel_drag()
                     self.command_panel.begin_press(event.pos, event.button)
@@ -398,6 +417,12 @@ class Application:
                         continue
                     if event.button == 1 and pygame.key.get_mods() & pygame.KMOD_CTRL:
                         self.drone_control.cancel(deselect=True)
+                    if event.button in (1,3) and self.unit_control.unit_at(event.pos,self.screen,self.camera) is None:
+                        world = self.camera.screen_to_world(event.pos)
+                        building = next((b for b in reversed(self.buildings.buildings) if b.area.inflate(30,45).collidepoint(world) and (b.owner=="blue" or self.visibility.is_visible(b.position))),None)
+                        if building is not None and (building.owner!="blue" or event.button==3 or (building.completed and building.definition.key=="mine")):
+                            self.building_operations.selected=building
+                            continue
                     if self.handle_aircraft_press(event):
                         continue
                     if event.button == 3 and self.unit_control.selected:
@@ -446,6 +471,13 @@ class Application:
 
     def update(self, elapsed_seconds, wall_seconds=None):
         self.interface_seconds = min(.1, max(0, elapsed_seconds))
+        self.menu.update(self.interface_seconds)
+        if self.menu.active:
+            self.unit_radio.update(False,self.camera,elapsed_seconds)
+            self.mine_ambience.update(self.buildings.buildings,self.camera,elapsed_seconds,False)
+            self.drone_ambience.update(self.drone_fleet.drones,self.camera,elapsed_seconds,False)
+            self.soundscape.update(elapsed_seconds,self.focused,self.menu.state!='main')
+            return
         if self.victory.active:
             self.victory.update(elapsed_seconds, self.screen.get_size())
             self.unit_radio.update(False, self.camera, elapsed_seconds)
@@ -477,6 +509,7 @@ class Application:
                 for city, previous, owner in self.city_map.capture_events:
                     if previous == "blue":
                         self.intelligence.record(f"Втрачено місто: {city.name}", city.position, "Міське донесення")
+                        self.reconnaissance.city_memory[city.position] = replace(city,capital=False,flag_color=None)
                 own = [city.name for city in captured if city.owner == "blue"]
                 if own:
                     self.unit_control.notify(f"Захоплено: {", ".join(own)}")
@@ -544,12 +577,18 @@ class Application:
             self.soundscape.celebrate()
 
     def draw_frame(self):
+        if self.menu.active:
+            self.menu.draw(self.screen)
+            pygame.display.flip()
+            return
         if self.victory.active and self.victory.background is not None:
             self.victory.draw(self.screen)
             pygame.display.flip()
             return
-        self.world_renderer.draw_scene(self.screen, self.camera, self.terrain, self.actors)
-        self.forest_rendering.draw(self.screen, self.camera, self.terrain, self.units, self.buildings.displayed_buildings(), self.city_map, self.visibility, shadow_parts(self.drone_fleet, self.screen, self.camera))
+        if self.actors:
+            self.world_renderer.draw_scene(self.screen, self.camera, self.terrain, self.actors)
+        self.forest_rendering.draw(self.screen, self.camera, self.terrain, self.units, self.buildings.displayed_buildings(), self.city_map, self.visibility, shadow_parts(self.drone_fleet, self.screen, self.camera), draw_background=not self.actors)
+        self.water_light.draw(self.screen, self.camera, self.city_map.animation_time, self.visibility)
         draw_aircraft(self.screen, self.camera, self.drone_fleet, self.drone_control.selected)
         self.gold_flow.draw_labels(self.screen, self.camera)
         self.construction.draw_preview(self.screen, self.camera)
@@ -565,18 +604,21 @@ class Application:
         self.map_hints.draw(self.screen, self.command_panel, self.minimap, self.camera)
         self.unit_control.draw_interface(self.screen, bottom=self.command_panel.top - 14, show_help=False)
         self.minimap.draw(self.screen, self.camera, self.interface_seconds)
+        self.building_operations.draw(self.screen,self.camera)
         self.hud.draw(self.screen, self.kingdom, self.interface_seconds)
         self.command_panel.draw(self.screen, self.interface_seconds)
         self.construction.draw_interface(self.screen, self.interface_seconds)
         self.rename_dialog.draw(self.screen, self.interface_seconds)
         if self.victory.active:
             self.victory.draw(self.screen)
+        self.menu.draw_exit(self.screen)
         pygame.display.flip()
 
     def run(self):
         rendered_frames = 0
+        capture_frames=30 if self.menu.active else 2
         try:
-            while self.running:
+            while self.running and not self.restart_requested:
                 wall_seconds = self.clock.tick(FRAME_RATE) / 1000
                 elapsed_seconds = min(wall_seconds, .05)
                 self.handle_events()
@@ -584,7 +626,7 @@ class Application:
                 self.draw_frame()
                 rendered_frames += 1
 
-                if self.arguments.capture and rendered_frames == 2:
+                if self.arguments.capture and rendered_frames == capture_frames:
                     self.arguments.capture.parent.mkdir(parents=True, exist_ok=True)
                     pygame.image.save(self.screen, str(self.arguments.capture))
                     self.running = False
@@ -593,4 +635,8 @@ class Application:
             self.drone_ambience.close()
             self.unit_radio.close()
             self.mine_ambience.close()
-            pygame.quit()
+            for view in (self.command_panel,self.command_panel.pages.construction,self.command_panel.pages.airport,self.contact_markers):
+                for method in vars(type(view)).values():
+                    if hasattr(method,"cache_clear"):method.cache_clear()
+            if not self.restart_requested:pygame.quit()
+        return self.restart_requested

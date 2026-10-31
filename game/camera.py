@@ -40,7 +40,10 @@ class Camera:
         return self.position + offset / self.zoom
 
     def world_to_screen(self, world_position):
-        return (pygame.Vector2(world_position) - self.position) * self.zoom + pygame.Vector2(self.viewport_size) / 2
+        return pygame.Vector2(
+            (world_position[0] - self.position.x) * self.zoom + self.viewport_size[0] / 2,
+            (world_position[1] - self.position.y) * self.zoom + self.viewport_size[1] / 2,
+        )
 
     def change_zoom(self, screen_position, steps):
         self.zoom_anchor.update(screen_position)

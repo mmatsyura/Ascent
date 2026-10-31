@@ -26,6 +26,7 @@ class City:
     remembered_frame: int | None = None
 
 
+@lru_cache(maxsize=256)
 def marker_scale(viewport_size, zoom, minimum_zoom):
     resolution_scale = max(.85, viewport_size[1] / 900)
     zoom_ratio = max(1, zoom / minimum_zoom)
@@ -42,7 +43,7 @@ def city_color(city):
     return PLAYER_COLOR if city.owner == "blue" else FACTION_COLORS.get(city.owner)
 
 
-@lru_cache(maxsize=24)
+@lru_cache(maxsize=192)
 def marker_image(capital, radius, color=None):
     scale = 4
     size = radius * 2 + 6
@@ -55,13 +56,25 @@ def marker_image(capital, radius, color=None):
             length = radius * scale * (1 if step % 2 == 0 else .43)
             points.append((round(center + math.cos(angle) * length), round(center + math.sin(angle) * length)))
         pygame.draw.polygon(image, (18, 33, 30), points, scale * 3)
-        pygame.draw.polygon(image, color or (235, 200, 112), points)
+        base = color or (235, 200, 112)
+        pygame.draw.polygon(image, base, points)
+        for step in range(10):
+            factor = 1.18 if step % 2 == 0 else .76
+            face = tuple(min(255, round(channel * factor)) for channel in base)
+            pygame.draw.polygon(image, face, [(center, center), points[step], points[(step + 1) % 10]])
         highlight = tuple(min(255, channel + 65) for channel in color) if color else (255, 236, 178)
         pygame.draw.lines(image, highlight, False, points[:4], scale)
     else:
-        pygame.draw.circle(image, (19, 36, 32), (center, center + scale), (radius + 1) * scale)
-        pygame.draw.circle(image, color or (225, 225, 191), (center, center), radius * scale)
-        pygame.draw.circle(image, (190, 220, 250) if color else (255, 246, 216), (center - scale, center - scale), max(2, radius * scale // 3))
+        base = color or (211, 207, 174)
+        pygame.draw.circle(image, (8, 19, 23, 100), (center, center + scale * 2), (radius + 1) * scale)
+        pygame.draw.circle(image, (20, 29, 29), (center, center), (radius + 1) * scale)
+        pygame.draw.circle(image, (188, 179, 138), (center, center), radius * scale)
+        for ring in range(max(1, radius * scale - scale), 0, -1):
+            light = .8 + .4 * (1 - ring / max(1, radius * scale))
+            shade = tuple(min(255, round(channel * light)) for channel in base)
+            pygame.draw.circle(image, shade, (center, center), ring)
+        highlight = tuple(min(255, round(channel * .5 + 127)) for channel in base)
+        pygame.draw.circle(image, highlight, (center - scale, center - scale), max(2, radius * scale // 5))
     return pygame.transform.smoothscale(image, (size, size)).convert_alpha()
 
 

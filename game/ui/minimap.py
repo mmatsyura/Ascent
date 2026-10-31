@@ -9,13 +9,15 @@ from game.ui.theme import ACCENT, MUTED, TEXT, draw_button, panel_surface
 
 class Minimap:
     def __init__(self, terrain):
-        self.map_size = (234, 161)
+        self.collapsed = False
+        self.screen_size = (1440,900)
+        self.map_size = (328, 225)
         self.image = terrain.create_overview(self.map_size)
         self.font = ui_font(14, True)
         self.header_font = ui_font(14, True)
         self.map_area = pygame.Rect(0, 0, *self.map_size)
         self.button_areas = {}
-        self.panel_area = pygame.Rect(0, 0, 270, 258)
+        self.panel_area = pygame.Rect(0, 0, 364, 322)
         self.background = self.create_background()
         self.overview_label = self.font.render("Огляд", True, TEXT)
         self.cached_scale = None
@@ -32,21 +34,31 @@ class Minimap:
     def create_background(self):
         background = panel_surface(self.panel_area.size).copy()
         background.blit(self.header_font.render("МІНІКАРТА", True, MUTED), (34, 17))
-        pygame.draw.line(background, (104, 98, 66), (27, 36), (243, 36))
-        pygame.draw.rect(background, (9, 16, 19), (16, 44, 238, 165))
-        pygame.draw.rect(background, (146, 127, 82), (16, 44, 238, 165), 1)
+        pygame.draw.line(background, (104, 98, 66), (27, 36), (337, 36))
+        pygame.draw.rect(background, (9, 16, 19), (16, 44, 332, 229))
+        pygame.draw.rect(background, (146, 127, 82), (16, 44, 332, 229), 1)
         return background
 
     def layout(self, screen_size):
+        self.screen_size = screen_size
+        self.panel_area.size = (364,42 if self.collapsed else 322)
+        self.background = self.create_background()
+        self.map_area.size = (0,0) if self.collapsed else self.map_size
         self.panel_area.bottomright = (screen_size[0] - 10, screen_size[1] - 8)
         self.map_area.topleft = (self.panel_area.x + 18, self.panel_area.y + 46)
+        self.toggle_area = pygame.Rect(self.panel_area.right-35,self.panel_area.y+10,24,24)
         self.button_areas = {
-            "zoom_out": pygame.Rect(self.panel_area.x + 18, self.panel_area.y + 217, 29, 24),
-            "overview": pygame.Rect(self.panel_area.x + 54, self.panel_area.y + 217, 162, 24),
-            "zoom_in": pygame.Rect(self.panel_area.x + 223, self.panel_area.y + 217, 29, 24),
+            "zoom_out": pygame.Rect(self.panel_area.x + 18, self.panel_area.y + 281, 29, 24),
+            "overview": pygame.Rect(self.panel_area.x + 54, self.panel_area.y + 281, 256, 24),
+            "zoom_in": pygame.Rect(self.panel_area.x + 317, self.panel_area.y + 281, 29, 24),
         }
 
     def handle_click(self, position, camera):
+        if self.toggle_area.collidepoint(position):
+            self.collapsed = not self.collapsed
+            self.end_drag()
+            self.layout(self.screen_size)
+            return True
         if self.map_area.collidepoint(position):
             camera.pan_to(self.world_position(position))
             return True
@@ -100,6 +112,11 @@ class Minimap:
 
     def draw(self, screen, camera, duration=1 / 60):
         screen.blit(self.background, self.panel_area)
+        pygame.draw.rect(screen,(41,54,49),self.toggle_area,border_radius=3)
+        label = self.font.render("+" if self.collapsed else "−",True,TEXT)
+        screen.blit(label,label.get_rect(center=self.toggle_area.center))
+        if self.collapsed:
+            return
         screen.blit(self.image, self.map_area)
         if self.city_map is not None:
             self.city_map.draw_minimap(screen, self.map_area)
@@ -138,7 +155,7 @@ class Minimap:
         if scale != self.cached_scale:
             self.cached_scale = scale
             self.scale_image = self.font.render(f"{scale}%", True, ACCENT)
-        screen.blit(self.scale_image, self.scale_image.get_rect(right=self.panel_area.x + 230, top=self.panel_area.y + 17))
+        screen.blit(self.scale_image, self.scale_image.get_rect(right=self.panel_area.x + 310, top=self.panel_area.y + 17))
 
         mouse_position = pygame.mouse.get_pos()
         mouse_pressed = pygame.mouse.get_pressed()[0]

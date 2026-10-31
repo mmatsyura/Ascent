@@ -22,7 +22,7 @@ class PatriotUnit(TankUnit):
 
     @property
     def detail_label(self):
-        return "ППО · перезаряджання 4 с · шанс 35%"
+        return "ППО · перезаряджання 7 с · шанс 35%"
 
     def update_environment(self, biome, elapsed_seconds):
         super().update_environment(biome, elapsed_seconds)

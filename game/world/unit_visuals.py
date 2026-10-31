@@ -41,17 +41,32 @@ def formation_positions(unit, diameter=None, camera=None, terrain=None):
     return [tuple(pygame.Vector2(unit.position) + pygame.Vector2(offset) * SQUAD_RADIUS) for offset in OFFSETS]
 
 
+@lru_cache(maxsize=128)
+def rocket_equipment(image, badge=False):
+    result=image.copy()
+    width,height=result.get_size()
+    start=(round(width*.28),round(height*.65))
+    end=(round(width*.78),round(height*.25))
+    thickness=max(2,round(height*.08))
+    pygame.draw.line(result,(30,39,32),start,end,thickness+2)
+    pygame.draw.line(result,(110,123,73),start,end,thickness)
+    pygame.draw.circle(result,(191,183,128),end,max(1,thickness//2))
+    return result
+
+
 def unit_parts(unit, screen, camera, terrain=None):
     if unit.is_tank:
         parts = tank_parts(unit, screen, camera)
         if unit.owner != "blue":
             parts = [UnitDrawPart(part.depth, faction_image(part.image, unit.owner), part.rectangle) for part in parts]
         return parts
-    rectangle = token_rectangle(unit, screen, camera)
     blend = detail_blend(camera.zoom)
     parts = []
     if blend < 1:
+        rectangle = token_rectangle(unit, screen, camera)
         image = token_image(rectangle.w, unit.selected)
+        if unit.is_anti_tank:
+            image = rocket_equipment(image,True)
         if blend > 0:
             image = image.copy()
             image.set_alpha(round((1 - blend) * 255))
@@ -69,6 +84,8 @@ def unit_parts(unit, screen, camera, terrain=None):
             if member and member.pose_blend < 1:
                 previous = soldier_image(height, unit.selected, phase, facing, member.previous_pose)
                 image = blend_pose_images(previous, image, round(member.pose_blend * 32))
+            if unit.is_anti_tank:
+                image = rocket_equipment(image)
             image = water_image(image, member.immersion if member else unit.immersion, unit.squad_time + index * .4)
             if blend < 1:
                 image = image.copy()

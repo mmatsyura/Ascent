@@ -8,6 +8,7 @@ from game.world.squad_motion import initialize_squad
 from game.world.tanks import TankUnit
 from game.world.units import UnitToken
 from game.world.patriots import PatriotUnit
+from game.world.anti_tank import AntiTankUnit
 
 
 GARRISON_LIMIT = 15
@@ -24,6 +25,7 @@ class RecruitDefinition:
 
 RECRUITS = (
     RecruitDefinition("infantry", "Солдати", 60, 20),
+    RecruitDefinition("anti_tank", "Протитанкові", 90, 28),
     RecruitDefinition("tank", "Танк", 110, 35),
     RecruitDefinition("patriot", "Петріот", 200, 60),
 )
@@ -112,9 +114,9 @@ class Recruitment:
                 position = self.spawn_position(building)
                 if position is None:
                     break
-                unit_type = {"infantry": UnitToken, "tank": TankUnit, "patriot": PatriotUnit}[definition.key]
+                unit_type = {"infantry": UnitToken, "tank": TankUnit, "patriot": PatriotUnit, "anti_tank": AntiTankUnit}[definition.key]
                 name = f"{self.next_number}-й піхотний загін" if definition.key == "infantry" else f"{definition.name} №{self.next_number}"
-                unit = unit_type(position, name=name, owner=self.owner)
+                unit = unit_type(position, name=name, owner=self.owner, source_barracks=building)
                 unit.update_environment(self.buildings.terrain.biome_at(position), 0)
                 if not unit.is_tank:
                     initialize_squad(unit, self.buildings.terrain, self.control.soldier_navigation)

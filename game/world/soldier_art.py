@@ -2,6 +2,7 @@ from functools import lru_cache
 import math
 
 import pygame
+from game.sprite_cache import prepared_sprite
 from game.world.badge_art import badge_background
 
 
@@ -100,7 +101,7 @@ def soldier_image(height, selected=False, phase=0, facing="front", pose="stand")
         image = pygame.transform.flip(image, True, False)
     if selected:
         image.fill((192, 192, 192, 255), special_flags=pygame.BLEND_RGBA_MULT)
-    return pygame.transform.smoothscale(image, (max(8, round(height * 112 / 132)), height)).convert_alpha()
+    return prepared_sprite(pygame.transform.smoothscale(image, (max(8, round(height * 112 / 132)), height)).convert_alpha())
 
 
 @lru_cache(maxsize=48)
@@ -123,4 +124,4 @@ def military_badge(size, selected=False):
     pygame.draw.circle(image, (182, 155, 116), (109, 102), 6)
     if selected:
         image.fill((180, 180, 180, 255), special_flags=pygame.BLEND_RGBA_MULT)
-    return pygame.transform.smoothscale(image, (size, size)).convert_alpha()
+    return prepared_sprite(pygame.transform.smoothscale(image, (size, size)).convert_alpha())

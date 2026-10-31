@@ -6,6 +6,7 @@ from game.strategy.commander import Commander
 from game.strategy.air_defense import AirDefense
 from game.strategy.ground_combat import GroundCombat
 from game.strategy.deployment import deploy_opponents
+from game.strategy.building_operations import BuildingOperations
 
 
 class Strategy:
@@ -13,6 +14,7 @@ class Strategy:
         self.app = app
         deploy_opponents(app)
         self.commanders = [Commander(app,owner,index) for index,owner in enumerate(('red','green','purple'))]
+        self.operations = BuildingOperations(app)
         self.air_defense = AirDefense(app)
         self.ground_combat = GroundCombat(app)
 
@@ -26,6 +28,7 @@ class Strategy:
     def update(self,duration):
         for commander in self.commanders:
             commander.update(duration)
+        self.operations.update(duration)
         self.air_defense.update(duration,self.fleets)
         self.ground_combat.update(duration)
 

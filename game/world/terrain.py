@@ -45,18 +45,13 @@ class Terrain:
             self.scenery_detail_levels.append(pygame.transform.smoothscale(self.scenery_detail_levels[-1], self.detail_levels[level].get_size()))
 
     def create_overview(self, size):
-        overview = pygame.transform.smoothscale(self.surface, size)
-        scale_x = size[0] / WORLD_WIDTH
-        scale_y = size[1] / WORLD_HEIGHT
-        scaled_images = {}
-
-        for sprite in sorted(self.scenery, key=lambda sprite: sprite.position[1]):
-            image_key = id(sprite.image)
-            if image_key not in scaled_images:
-                scaled_images[image_key] = pygame.transform.smoothscale(sprite.image, (max(1, round(sprite.image.get_width() * scale_x)), max(1, round(sprite.image.get_height() * scale_y))))
-            overview.blit(scaled_images[image_key], (round((sprite.position[0] - sprite.anchor[0]) * scale_x), round((sprite.position[1] - sprite.anchor[1]) * scale_y)))
-
-        return overview
+        level = 0
+        while level + 1 < len(self.scenery_detail_levels):
+            candidate = self.scenery_detail_levels[level + 1]
+            if candidate.get_width() < size[0] or candidate.get_height() < size[1]:
+                break
+            level += 1
+        return pygame.transform.smoothscale(self.scenery_detail_levels[level], size)
 
     def biome_at(self, position):
         world_x, world_y = position

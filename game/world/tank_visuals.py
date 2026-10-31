@@ -1,3 +1,5 @@
+import pygame
+
 from game.rendering import RenderPart
 from game.world.tank_art import tank_badge, tank_sprite
 from game.world.tank_geometry import TANK_RENDER_SIZE
@@ -27,5 +29,7 @@ def tank_parts(unit, screen, camera):
             image = image.copy()
             image.set_alpha(round(blend * 255))
         center = camera.world_to_screen(unit.position)
+        if unit.recoil and not unit.is_patriot:
+            center -= pygame.Vector2(0,-1).rotate(unit.turret_angle)*unit.recoil*2.5*camera.zoom
         parts.append(RenderPart(unit.position[1], image, image.get_rect(center=(round(center.x), round(center.y)))))
     return parts

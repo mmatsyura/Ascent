@@ -42,17 +42,42 @@ def panel_surface(size):
                 section = pygame.transform.smoothscale(source.subsurface(source_area), target_area.size)
                 surface.blit(section, target_area)
 
+    interior = pygame.Rect(17, 16, width - 34, body_height - 32)
+    if interior.w > 0 and interior.h > 0:
+        for row in range(interior.h):
+            progress = row / max(1, interior.h - 1)
+            color = tuple(round(first + (last - first) * progress) for first, last in zip((27, 36, 32), (14, 22, 21)))
+            pygame.draw.line(surface, color, (interior.left, interior.top + row), (interior.right - 1, interior.top + row))
+        pygame.draw.line(surface, (84, 80, 58), interior.topleft, (interior.right - 1, interior.top))
+        pygame.draw.line(surface, (7, 14, 14), (interior.left, interior.bottom - 1), (interior.right - 1, interior.bottom - 1))
     return surface
 
 
 def draw_button(surface, rectangle, hovered=False, pressed=False):
     rectangle = pygame.Rect(rectangle)
-    hover = max(0, min(1, float(hovered)))
-    press = max(0, min(1, float(pressed)))
+    image = button_surface(rectangle.size, round(max(0, min(1, float(hovered))) * 16), round(max(0, min(1, float(pressed))) * 16))
+    surface.blit(image, rectangle)
+
+
+@lru_cache(maxsize=192)
+def button_surface(size, hover_step, press_step):
+    surface = pygame.Surface(size, pygame.SRCALPHA)
+    rectangle = surface.get_rect()
+    hover = hover_step / 16
+    press = press_step / 16
     background = tuple(round(start + (end - start) * hover) for start, end in zip((28, 39, 34), (49, 62, 51)))
     background = tuple(round(start + (end - start) * press) for start, end in zip(background, (18, 28, 25)))
     border = tuple(round(start + (end - start) * hover) for start, end in zip(BORDER, ACCENT))
     pygame.draw.rect(surface, (8, 15, 13), rectangle.move(0, 2), border_radius=3)
     pygame.draw.rect(surface, background, rectangle, border_radius=3)
+    for row in range(2, max(2, rectangle.h - 2)):
+        light = 7 * (1 - row / max(1, rectangle.h - 1)) - 4
+        color = tuple(max(0, min(255, round(channel + light))) for channel in background)
+        pygame.draw.line(surface, color, (2, row), (rectangle.w - 3, row))
     pygame.draw.rect(surface, border, rectangle, 1, border_radius=3)
     pygame.draw.line(surface, (102, 111, 81), (rectangle.left + 3, rectangle.top + 2), (rectangle.right - 4, rectangle.top + 2))
+    if rectangle.w >= 80:
+        length = min(18, rectangle.w // 5)
+        pygame.draw.line(surface, border, (4, rectangle.h - 3), (4 + length, rectangle.h - 3))
+        pygame.draw.line(surface, border, (rectangle.w - 5 - length, 3), (rectangle.w - 5, 3))
+    return surface

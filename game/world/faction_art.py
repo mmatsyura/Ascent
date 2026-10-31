@@ -2,6 +2,7 @@ from functools import lru_cache
 
 import numpy as np
 import pygame
+from game.sprite_cache import prepared_sprite
 
 
 FACTION_COLORS = {"red": (192, 76, 59), "green": (71, 151, 91), "purple": (149, 92, 175)}
@@ -21,4 +22,4 @@ def faction_image(image, owner):
         values = np.minimum(255, np.rint(brightness * color[channel])).astype(np.uint8)
         pixels[..., channel][blue] = values[blue]
     del pixels
-    return tinted
+    return prepared_sprite(tinted)

@@ -6,6 +6,7 @@ import pygame
 
 from game.settings import FOG_EDGE_WIDTH, WORLD_HEIGHT, WORLD_WIDTH
 from game.world.forest_visibility import ForestVisibility
+from game.world.fog_geometry import soften_opacity
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class Visibility:
         self.preview_buffer = None
         self.scaling_buffer = None
         self.mini_cache = {}
+        self.visible_cache = {}
         self.forest = ForestVisibility(terrain, self.grid_size) if terrain is not None else None
         self.explored = np.zeros((WORLD_HEIGHT // self.grid_size, WORLD_WIDTH // self.grid_size), dtype=bool)
         self.explored_opacity = 104
@@ -61,6 +63,7 @@ class Visibility:
         if sources == self.sources and self.surface is not None and not country_changed:
             return
         self.sources = sources
+        self.visible_cache.clear()
         width, height = WORLD_WIDTH // self.grid_size, WORLD_HEIGHT // self.grid_size
         previous_field = self.field
         territory_sources = tuple(source for source in sources if source.territorial)
@@ -120,6 +123,7 @@ class Visibility:
         patch_alpha = alpha[left:right, top:bottom]
         np.minimum(patch_alpha, np.round(fade.T * 255).astype(np.uint8), out=patch_alpha)
         del patch_alpha
+        alpha[:]=soften_opacity(np.asarray(alpha).T).T
         del alpha
 
         if territory_changed:
@@ -194,6 +198,10 @@ class Visibility:
     def is_visible(self, position):
         if self.field is None or not (0 <= position[0] < WORLD_WIDTH and 0 <= position[1] < WORLD_HEIGHT):
             return False
+        key = tuple(position)
+        cached = self.visible_cache.get(key)
+        if cached is not None:
+            return cached
         horizontal, vertical = position[0] / self.grid_size, position[1] / self.grid_size
         column, row = int(horizontal), int(vertical)
         next_column = min(column + 1, self.field.shape[1] - 1)
@@ -201,7 +209,11 @@ class Visibility:
         fraction_x, fraction_y = horizontal - column, vertical - row
         top = self.field[row, column] * (1 - fraction_x) + self.field[row, next_column] * fraction_x
         bottom = self.field[next_row, column] * (1 - fraction_x) + self.field[next_row, next_column] * fraction_x
-        return bool(top * (1 - fraction_y) + bottom * fraction_y >= 0)
+        result = bool(top * (1 - fraction_y) + bottom * fraction_y >= 0)
+        if len(self.visible_cache) >= 4096:
+            self.visible_cache.clear()
+        self.visible_cache[key] = result
+        return result
 
     def is_explored(self, position):
         if not (0 <= position[0] < WORLD_WIDTH and 0 <= position[1] < WORLD_HEIGHT):

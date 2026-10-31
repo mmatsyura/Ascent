@@ -1,0 +1,58 @@
+from functools import lru_cache
+from pathlib import Path
+
+import pygame
+
+
+PANEL = (18, 25, 23)
+TEXT = (242, 235, 211)
+MUTED = (201, 204, 183)
+ACCENT = (221, 190, 126)
+BORDER = (128, 109, 72)
+
+
+@lru_cache(maxsize=1)
+def panel_texture():
+    asset_path = Path(__file__).resolve().parents[1] / "assets" / "ui" / "ornate_panel.png"
+    image = pygame.image.load(str(asset_path)).convert()
+    return image.subsurface((6, 6, image.get_width() - 12, image.get_height() - 44)).copy()
+
+
+@lru_cache(maxsize=16)
+def panel_surface(size):
+    source = panel_texture()
+    surface = pygame.Surface(size, pygame.SRCALPHA)
+    width, height = size
+    body_height = height - 6
+    source_corner = 270
+    target_corner = min(30, body_height // 2, width // 2)
+    source_columns = (0, source_corner, source.get_width() - source_corner, source.get_width())
+    source_rows = (0, source_corner, source.get_height() - source_corner, source.get_height())
+    target_columns = (0, target_corner, width - target_corner, width)
+    target_rows = (0, target_corner, body_height - target_corner, body_height)
+
+    for offset, opacity in [(0, 15), (2, 25), (4, 40)]:
+        pygame.draw.rect(surface, (0, 0, 0, opacity), (offset, 6, width - offset * 2, height - 6 - offset), border_radius=5)
+
+    for row in range(3):
+        for column in range(3):
+            source_area = pygame.Rect(source_columns[column], source_rows[row], source_columns[column + 1] - source_columns[column], source_rows[row + 1] - source_rows[row])
+            target_area = pygame.Rect(target_columns[column], target_rows[row], target_columns[column + 1] - target_columns[column], target_rows[row + 1] - target_rows[row])
+            if target_area.width and target_area.height:
+                section = pygame.transform.smoothscale(source.subsurface(source_area), target_area.size)
+                surface.blit(section, target_area)
+
+    return surface
+
+
+def draw_button(surface, rectangle, hovered=False, pressed=False):
+    rectangle = pygame.Rect(rectangle)
+    hover = max(0, min(1, float(hovered)))
+    press = max(0, min(1, float(pressed)))
+    background = tuple(round(start + (end - start) * hover) for start, end in zip((28, 39, 34), (49, 62, 51)))
+    background = tuple(round(start + (end - start) * press) for start, end in zip(background, (18, 28, 25)))
+    border = tuple(round(start + (end - start) * hover) for start, end in zip(BORDER, ACCENT))
+    pygame.draw.rect(surface, (8, 15, 13), rectangle.move(0, 2), border_radius=3)
+    pygame.draw.rect(surface, background, rectangle, border_radius=3)
+    pygame.draw.rect(surface, border, rectangle, 1, border_radius=3)
+    pygame.draw.line(surface, (102, 111, 81), (rectangle.left + 3, rectangle.top + 2), (rectangle.right - 4, rectangle.top + 2))

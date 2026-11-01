@@ -328,18 +328,24 @@ class Application:
         return self.hud.panel_area.collidepoint(position) or self.command_panel.contains(position) or self.minimap.panel_area.collidepoint(position) or self.building_operations.contains(position)
 
     def handle_key(self, key):
-        if key == pygame.K_ESCAPE and self.construction.active:
-            self.construction.cancel()
+        if key == pygame.K_ESCAPE:
+            selected = bool(self.unit_control.selected or self.drone_control.selected is not None or self.map_hints.selected_city is not None or self.building_operations.selected is not None)
+            placing = self.construction.active
+            self.cancel_drag()
+            self.unit_control.cancel(deselect=True)
+            self.drone_control.cancel(deselect=True)
+            self.map_hints.select_city(None)
+            self.building_operations.selected = None
+            if self.command_panel.active_section:
+                self.command_panel.activate(("close",))
+            if not selected and not placing:
+                self.menu.pause()
         elif key == pygame.K_F2 and len(self.unit_control.selected) == 1:
             self.open_unit_rename(self.unit_control.selected[0])
         elif self.command_panel.handle_key(key):
             self.cancel_drag(cancel_placement=key != pygame.K_SPACE)
-        elif key == pygame.K_ESCAPE and self.drone_control.selected is not None:
-            self.drone_control.cancel(deselect=True)
         elif key == pygame.K_x and self.drone_control.selected is not None:
             self.drone_fleet.hold(self.drone_control.selected)
-        elif key == pygame.K_ESCAPE:
-            self.menu.pause()
         elif key == pygame.K_x and self.unit_control.selected:
             self.unit_control.stop()
         elif key == pygame.K_HOME:
@@ -381,6 +387,8 @@ class Application:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     self.soundscape.click()
                 self.rename_dialog.handle_event(event)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.handle_key(event.key)
             elif self.building_operations.handle(event):
                 continue
             elif event.type == pygame.KEYDOWN:

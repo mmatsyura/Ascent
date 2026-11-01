@@ -94,6 +94,8 @@ def generate_terrain():
     sand_color = np.array([166, 159, 119]) + dry_sand[..., None] * np.array([54, 44, 34])
     sand_ripples = np.sin(vertical * height * .8 + ground_noise * 9) * 1.4
     sand_color += (texture * .55 + sand_ripples)[..., None]
+    dune_grain = np.sin(horizontal * width * .7 + ground_noise * 15) * np.sin(vertical * height * .63)
+    sand_color += (dune_grain * dry_sand * .8)[..., None]
     wet_shore = np.exp(-np.maximum(water_distance, 0) / .0014)
     sand_color -= wet_shore[..., None] * np.array([12, 10, 6])
     colors = colors * (1 - sand_blend[..., None]) + sand_color * sand_blend[..., None]
@@ -123,6 +125,8 @@ def generate_terrain():
     rock_color -= (creases * np.clip(elevation * 2, 0, 1))[..., None] * np.array([12, 14, 16])
     cool_shadow = np.clip(-lighting, 0, 1)[..., None]
     rock_color += cool_shadow * np.array([-7, 0, 9])
+    rock_seams = np.clip((.25 - stone_detail) * 4, 0, 1)
+    rock_color -= (rock_seams * np.clip(elevation * 2, 0, 1))[..., None] * np.array([7, 8, 7])
     foothills = np.clip((elevation - .12) / .13, 0, 1)[..., None]
     rock_color = np.array([111, 128, 99]) * (1 - foothills) + rock_color * foothills
     snow = np.clip((mountain_height - .67 + ground_noise * .08) / .16, 0, 1)[..., None]

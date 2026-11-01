@@ -43,6 +43,8 @@ class Visibility:
         self.frame_bounds = None
         self.frame_margin = 144
         self.frame_zoom = None
+        self.stable_fog_frames = 0
+        self.fog_accelerated = False
         self.preview_buffer = None
         self.scaling_buffer = None
         self.mini_cache = {}
@@ -305,10 +307,17 @@ class Visibility:
                     points = [(round((horizontal - origin_x) * camera.zoom), round((vertical - origin_y) * camera.zoom)) for horizontal, vertical in contour]
                     pygame.draw.lines(scaled, (0, 0, 0, 255), True, points, 2)
             self.frame_surface = scaled
+            self.stable_fog_frames = 0
+            self.fog_accelerated = False
             self.frame_bounds = (origin_x, origin_y, right * self.grid_size, bottom * self.grid_size)
             self.frame_key = key
         position = (round((self.frame_bounds[0] - left) * camera.zoom), round((self.frame_bounds[1] - top) * camera.zoom))
-        screen.blit(self.frame_surface, position)
+        self.stable_fog_frames += 1
+        if self.stable_fog_frames == 24:
+            self.frame_surface = self.frame_surface.copy()
+            self.frame_surface.set_alpha(255, pygame.RLEACCEL)
+            self.fog_accelerated = True
+        screen.blit(self.frame_surface, position, special_flags=pygame.BLEND_ALPHA_SDL2 if self.fog_accelerated else 0)
 
     def draw_minimap(self, screen, map_area):
         key = (map_area.size, self.revision)

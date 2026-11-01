@@ -127,20 +127,27 @@ class CityMap:
 
     def update(self, elapsed_seconds, units):
         self.animation_time += elapsed_seconds
-        occupied = {}
+        layout = tuple((city.position, city.capital) for city in self.cities)
+        if getattr(self, "capture_layout", None) != layout:
+            self.capture_layout = layout
+            self.capture_cells = {}
+            for city in self.cities:
+                radius = 26 if city.capital else 18
+                x, y = city.position
+                for row in range(math.floor((y - radius) / 128), math.floor((y + radius) / 128) + 1):
+                    for column in range(math.floor((x - radius) / 128), math.floor((x + radius) / 128) + 1):
+                        self.capture_cells.setdefault((column, row), []).append((city, radius * radius))
+        occupants = {}
         for unit in units:
-            for position in (unit.position, *(member.position for member in unit.members)):
-                cell = (int(position[0] // 128), int(position[1] // 128))
-                occupied.setdefault(cell, []).append((position, unit.owner))
+            for point in (unit.position, *(member.position for member in unit.members)):
+                cell = int(point[0] // 128), int(point[1] // 128)
+                for city, radius_squared in self.capture_cells.get(cell, ()):
+                    if (point[0] - city.position[0]) ** 2 + (point[1] - city.position[1]) ** 2 <= radius_squared:
+                        occupants.setdefault(city, set()).add(unit.owner)
         captured = []
         self.capture_events = []
         for city in self.cities:
-            radius = 26 if city.capital else 18
-            x, y = city.position
-            owners = {owner for row in range(math.floor((y-radius)/128), math.floor((y+radius)/128)+1)
-                      for column in range(math.floor((x-radius)/128), math.floor((x+radius)/128)+1)
-                      for point, owner in occupied.get((column,row), ())
-                      if (point[0]-x)**2 + (point[1]-y)**2 <= radius**2}
+            owners = occupants.get(city, ())
             if len(owners) != 1:
                 continue
             owner = owners.pop()

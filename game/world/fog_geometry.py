@@ -26,9 +26,9 @@ def border_distance(mask, step, reach):
 def soften_opacity(values):
     values=values.astype(np.uint16)
     padded=np.pad(values,((0,0),(1,1)),mode='edge')
-    horizontal=(padded[:,:-2]+padded[:,1:-1]*2+padded[:,2:]+2)//4
+    horizontal=(padded[:,:-2]+padded[:,1:-1]*2+padded[:,2:]+2)>>2
     padded=np.pad(horizontal,((1,1),(0,0)),mode='edge')
-    return ((padded[:-2]+padded[1:-1]*2+padded[2:]+2)//4).astype(np.uint8)
+    return ((padded[:-2]+padded[1:-1]*2+padded[2:]+2)>>2).astype(np.uint8)
 
 
 def city_connected_mask(mask, positions, step):

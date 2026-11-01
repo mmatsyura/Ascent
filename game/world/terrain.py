@@ -10,6 +10,9 @@ from game.world.generation import generate_terrain
 from game.world.vegetation import create_trees
 
 
+BIOME_VALUES = tuple(Biome)
+
+
 class Terrain:
     def __init__(self):
         self.revision = 0
@@ -57,7 +60,7 @@ class Terrain:
         world_x, world_y = position
         if not (0 <= world_x < WORLD_WIDTH and 0 <= world_y < WORLD_HEIGHT):
             return None
-        return Biome(self.biomes[int(world_y) // TERRAIN_SCALE, int(world_x) // TERRAIN_SCALE])
+        return BIOME_VALUES[self.biomes[int(world_y) // TERRAIN_SCALE, int(world_x) // TERRAIN_SCALE]]
 
     def _area_is_allowed(self, area, allowed_mask):
         left, top, width, height = area

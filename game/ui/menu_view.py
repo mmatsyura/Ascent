@@ -4,6 +4,7 @@ import math
 import pygame
 
 from game.ui.fonts import ui_font
+from game.ui.scrolling_backdrop import ScrollingBackdrop
 from game.ui.theme import panel_surface, TEXT, MUTED, ACCENT
 
 
@@ -45,6 +46,7 @@ class MenuView:
         scaled=pygame.transform.smoothscale(self.map_image,(round(self.map_image.get_width()*ratio),round(self.map_image.get_height()*ratio)))
         image.blit(scaled,scaled.get_rect(center=image.get_rect().center))
         image.fill((95,121,112),special_flags=pygame.BLEND_RGB_MULT)
+        self.scrolling_map = ScrollingBackdrop(image)
         shade=pygame.Surface((width+40,height+40),pygame.SRCALPHA)
         for x in range(width+40):
             distance=x/(width+40)
@@ -63,6 +65,8 @@ class MenuView:
             pygame.draw.line(grid,(221,190,126,65),(point[0]-9,point[1]),(point[0]+9,point[1]),1)
             pygame.draw.line(grid,(221,190,126,65),(point[0],point[1]-9),(point[0],point[1]+9),1)
         image.blit(grid,(0,0))
+        self.fixed_overlay = shade.copy()
+        self.fixed_overlay.blit(grid,(0,0))
         self.background=image
 
     def button(self,surface,action,label,rectangle,primary=False,hint=None):
@@ -104,8 +108,8 @@ class MenuView:
         width,height=screen.get_size()
         self.background_image(screen.get_size())
         if menu.state=='main' or menu.parent=='main' and menu.state in ('settings','controls','confirm_exit','confirm_new'):
-            offset=(-20+round(math.sin(menu.elapsed*.06)*10),-20+round(math.cos(menu.elapsed*.045)*8))
-            screen.blit(self.background,offset)
+            self.scrolling_map.draw(screen, menu.elapsed)
+            screen.blit(self.fixed_overlay, (-20, -20))
         else:
             if self.pause_background is None or self.pause_size!=screen.get_size():
                 source=menu.snapshot if menu.snapshot is not None else self.background

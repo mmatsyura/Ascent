@@ -18,7 +18,9 @@ class Economy:
             duration = min(remaining, self.payment_interval - self.payment_time)
             self.pending_gold += income * duration
             for mine in mines:
-                self.mine_pending[mine] = self.mine_pending.get(mine, 0) + mine.definition.income_per_second * duration
+                self.mine_pending[mine] = (
+                    self.mine_pending.get(mine, 0) + mine.definition.income_per_second * duration
+                )
             self.payment_time += duration
             remaining -= duration
             if self.payment_time >= self.payment_interval - 1e-9:

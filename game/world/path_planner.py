@@ -33,7 +33,12 @@ class PathPlanner:
             if not destinations:
                 unit.route.clear()
                 continue
-            request = PathRequest(unit, tuple(tuple(point) for point in destinations), route=[], start=tuple(unit.position))
+            request = PathRequest(
+                unit,
+                tuple(tuple(point) for point in destinations),
+                route=[],
+                start=tuple(unit.position),
+            )
             unit.route.clear()
             unit.planning_target = request.destinations[-1]
             self.requests[unit] = request
@@ -55,7 +60,7 @@ class PathPlanner:
                 return route[index:].copy()
         return None
 
-    def update(self, units, budget=.002):
+    def update(self, units, budget=0.002):
         deadline = perf_counter() + budget
         present = set(units)
         revision = self.navigation.terrain.revision
@@ -84,7 +89,9 @@ class PathPlanner:
                     self.finish(request, shared)
                     continue
             if request.iterator is None:
-                request.iterator = self.navigation.iter_path(request.start, request.destinations[request.waypoint], cells)
+                request.iterator = self.navigation.iter_path(
+                    request.start, request.destinations[request.waypoint], cells
+                )
             try:
                 next(request.iterator)
             except StopIteration as result:

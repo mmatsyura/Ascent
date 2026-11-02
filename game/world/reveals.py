@@ -17,7 +17,7 @@ def faded_parts(parts, opacity):
 class ObjectReveals:
     def __init__(self, reconnaissance):
         self.reconnaissance = reconnaissance
-        self.duration = .7
+        self.duration = 0.7
         self.cities = {}
         self.buildings = {}
         self.units = {}
@@ -56,7 +56,11 @@ class ObjectReveals:
         return 255 if city.owner == "blue" else self.opacity(self.cities.get(city.position, 0))
 
     def building_opacity(self, building):
-        return 255 if building.owner == "blue" else self.opacity(self.buildings.get(self.building_key(building), 0))
+        return (
+            255
+            if building.owner == "blue"
+            else self.opacity(self.buildings.get(self.building_key(building), 0))
+        )
 
     def unit_opacity(self, unit):
         return 255 if unit.owner == "blue" else self.opacity(self.units.get(unit, 0))

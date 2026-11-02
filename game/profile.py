@@ -1,6 +1,6 @@
+from pathlib import Path
 import json
 import os
-from pathlib import Path
 
 
 class PlayerProfile:
@@ -15,7 +15,14 @@ class PlayerProfile:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             names = data.get("unit_names", {})
             if isinstance(names, dict):
-                self.unit_names = {key: value for key, value in names.items() if isinstance(key, str) and isinstance(value, str) and value.strip() and len(value) <= 32}
+                self.unit_names = {
+                    key: value
+                    for key, value in names.items()
+                    if isinstance(key, str)
+                    and isinstance(value, str)
+                    and value.strip()
+                    and len(value) <= 32
+                }
         except (OSError, ValueError, AttributeError):
             pass
 
@@ -30,7 +37,9 @@ class PlayerProfile:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self.path.with_suffix(".tmp")
-            temporary.write_text(json.dumps({"unit_names": names}, ensure_ascii=False, indent=2), encoding="utf-8")
+            temporary.write_text(
+                json.dumps({"unit_names": names}, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
             temporary.replace(self.path)
         except OSError:
             return False

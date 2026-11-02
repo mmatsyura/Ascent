@@ -5,14 +5,13 @@ import math
 import numpy as np
 import pygame
 
-from game.settings import MAP_SEED, MAX_ZOOM, PLAYER_COLOR, TERRAIN_SCALE, WORLD_HEIGHT, WORLD_WIDTH
-from game.world.biomes import Biome
-from game.world.names import CITY_NAMES
 from game.rendering import RenderPart
-from game.world.capital_flags import FLAG_FRAMES, FLAG_RATE, flag_image
-from game.world.faction_art import FACTION_COLORS
-from game.world.reveals import faded_parts
+from game.settings import MAP_SEED, MAX_ZOOM, PLAYER_COLOR, TERRAIN_SCALE, WORLD_HEIGHT, WORLD_WIDTH
 from game.strategy.balance import balance_territories
+from game.world.biomes import Biome
+from game.world.faction_visuals import FACTION_COLORS, FLAG_FRAMES, FLAG_RATE, flag_image
+from game.world.names import CITY_NAMES
+from game.world.reveals import faded_parts
 
 
 @dataclass(eq=False)
@@ -28,11 +27,11 @@ class City:
 
 @lru_cache(maxsize=256)
 def marker_scale(viewport_size, zoom, minimum_zoom):
-    resolution_scale = max(.85, viewport_size[1] / 900)
+    resolution_scale = max(0.85, viewport_size[1] / 900)
     zoom_ratio = max(1, zoom / minimum_zoom)
     maximum_ratio = max(1, MAX_ZOOM / minimum_zoom)
     progress = min(1, math.log(zoom_ratio) / math.log(maximum_ratio)) if maximum_ratio > 1 else 0
-    return resolution_scale * zoom_ratio / (1.5 * 1.7 ** progress)
+    return resolution_scale * zoom_ratio / (1.5 * 1.7**progress)
 
 
 def marker_radius(capital, size_scale):
@@ -53,28 +52,36 @@ def marker_image(capital, radius, color=None):
         points = []
         for step in range(10):
             angle = -math.pi / 2 + step * math.pi / 5
-            length = radius * scale * (1 if step % 2 == 0 else .43)
-            points.append((round(center + math.cos(angle) * length), round(center + math.sin(angle) * length)))
+            length = radius * scale * (1 if step % 2 == 0 else 0.43)
+            points.append(
+                (round(center + math.cos(angle) * length), round(center + math.sin(angle) * length))
+            )
         pygame.draw.polygon(image, (18, 33, 30), points, scale * 3)
         base = color or (235, 200, 112)
         pygame.draw.polygon(image, base, points)
         for step in range(10):
-            factor = 1.18 if step % 2 == 0 else .76
+            factor = 1.18 if step % 2 == 0 else 0.76
             face = tuple(min(255, round(channel * factor)) for channel in base)
-            pygame.draw.polygon(image, face, [(center, center), points[step], points[(step + 1) % 10]])
+            pygame.draw.polygon(
+                image, face, [(center, center), points[step], points[(step + 1) % 10]]
+            )
         highlight = tuple(min(255, channel + 65) for channel in color) if color else (255, 236, 178)
         pygame.draw.lines(image, highlight, False, points[:4], scale)
     else:
         base = color or (211, 207, 174)
-        pygame.draw.circle(image, (8, 19, 23, 100), (center, center + scale * 2), (radius + 1) * scale)
+        pygame.draw.circle(
+            image, (8, 19, 23, 100), (center, center + scale * 2), (radius + 1) * scale
+        )
         pygame.draw.circle(image, (20, 29, 29), (center, center), (radius + 1) * scale)
         pygame.draw.circle(image, (188, 179, 138), (center, center), radius * scale)
         for ring in range(max(1, radius * scale - scale), 0, -1):
-            light = .8 + .4 * (1 - ring / max(1, radius * scale))
+            light = 0.8 + 0.4 * (1 - ring / max(1, radius * scale))
             shade = tuple(min(255, round(channel * light)) for channel in base)
             pygame.draw.circle(image, shade, (center, center), ring)
-        highlight = tuple(min(255, round(channel * .5 + 127)) for channel in base)
-        pygame.draw.circle(image, highlight, (center - scale, center - scale), max(2, radius * scale // 5))
+        highlight = tuple(min(255, round(channel * 0.5 + 127)) for channel in base)
+        pygame.draw.circle(
+            image, highlight, (center - scale, center - scale), max(2, radius * scale // 5)
+        )
     return pygame.transform.smoothscale(image, (size, size)).convert_alpha()
 
 
@@ -97,7 +104,7 @@ class CityMap:
         self.reveals = None
         capital_colors = ((193, 68, 57), (64, 124, 202), (64, 153, 96), (151, 91, 183))
         capital_owners = dict(zip(capital_colors, ("red", "blue", "green", "purple")))
-        capital_locations = ((.28, .22), (.64, .28), (.23, .86), (.72, .84))
+        capital_locations = ((0.28, 0.22), (0.64, 0.28), (0.23, 0.86), (0.72, 0.84))
         for (horizontal, vertical), color in zip(capital_locations, capital_colors):
             target = pygame.Vector2(horizontal * WORLD_WIDTH, vertical * WORLD_HEIGHT)
             available = [point for point in candidates if self.spaced(point, 900)]
@@ -113,17 +120,32 @@ class CityMap:
             if len(self.cities) == 48:
                 break
 
-        self.cities = [replace(city, name=CITY_NAMES[index]) for index, city in enumerate(self.cities)]
+        self.cities = [
+            replace(city, name=CITY_NAMES[index]) for index, city in enumerate(self.cities)
+        ]
         for capital in (city for city in self.cities if city.capital):
-            nearest = sorted((city for city in self.cities if city.owner is None), key=lambda city: pygame.Vector2(capital.position).distance_squared_to(city.position))[:3]
+            nearest = sorted(
+                (city for city in self.cities if city.owner is None),
+                key=lambda city: pygame.Vector2(capital.position).distance_squared_to(
+                    city.position
+                ),
+            )[:3]
             for city in nearest:
                 city.owner = capital.owner
         balance_territories(terrain, self.cities)
-        self.player_capital = next(city for city in self.cities if city.capital and city.owner == "blue")
-        self.player_cities = [city for city in self.cities if city.owner == "blue" and not city.capital]
+        self.player_capital = next(
+            city for city in self.cities if city.capital and city.owner == "blue"
+        )
+        self.player_cities = [
+            city for city in self.cities if city.owner == "blue" and not city.capital
+        ]
 
     def spaced(self, point, minimum_distance):
-        return all((point[0] - city.position[0]) ** 2 + (point[1] - city.position[1]) ** 2 >= minimum_distance ** 2 for city in self.cities)
+        return all(
+            (point[0] - city.position[0]) ** 2 + (point[1] - city.position[1]) ** 2
+            >= minimum_distance**2
+            for city in self.cities
+        )
 
     def update(self, elapsed_seconds, units):
         self.animation_time += elapsed_seconds
@@ -134,15 +156,23 @@ class CityMap:
             for city in self.cities:
                 radius = 26 if city.capital else 18
                 x, y = city.position
-                for row in range(math.floor((y - radius) / 128), math.floor((y + radius) / 128) + 1):
-                    for column in range(math.floor((x - radius) / 128), math.floor((x + radius) / 128) + 1):
-                        self.capture_cells.setdefault((column, row), []).append((city, radius * radius))
+                for row in range(
+                    math.floor((y - radius) / 128), math.floor((y + radius) / 128) + 1
+                ):
+                    for column in range(
+                        math.floor((x - radius) / 128), math.floor((x + radius) / 128) + 1
+                    ):
+                        self.capture_cells.setdefault((column, row), []).append(
+                            (city, radius * radius)
+                        )
         occupants = {}
         for unit in units:
             for point in (unit.position, *(member.position for member in unit.members)):
                 cell = int(point[0] // 128), int(point[1] // 128)
                 for city, radius_squared in self.capture_cells.get(cell, ()):
-                    if (point[0] - city.position[0]) ** 2 + (point[1] - city.position[1]) ** 2 <= radius_squared:
+                    if (point[0] - city.position[0]) ** 2 + (
+                        point[1] - city.position[1]
+                    ) ** 2 <= radius_squared:
                         occupants.setdefault(city, set()).add(unit.owner)
         captured = []
         self.capture_events = []
@@ -156,23 +186,29 @@ class CityMap:
             self.capture_events.append((city, city.owner, owner))
             city.owner = owner
             if city.capital:
-                city.flag_color = PLAYER_COLOR if owner == 'blue' else FACTION_COLORS[owner]
+                city.flag_color = PLAYER_COLOR if owner == "blue" else FACTION_COLORS[owner]
             captured.append(city)
         if captured:
-            self.player_cities = [city for city in self.cities if city.owner == 'blue' and not city.capital]
+            self.player_cities = [
+                city for city in self.cities if city.owner == "blue" and not city.capital
+            ]
             self.revision += 1
         return captured
 
     def flag_frame(self, city):
         if city.remembered_frame is not None:
             return city.remembered_frame
-        offset = (city.position[0] * .013 + city.position[1] * .017) % 1
+        offset = (city.position[0] * 0.013 + city.position[1] * 0.017) % 1
         return int((self.animation_time + offset) * FLAG_RATE) % FLAG_FRAMES
 
     def displayed_cities(self):
         if self.reconnaissance is not None:
             return self.reconnaissance.displayed_cities()
-        return tuple(city for city in self.cities if self.visibility is None or self.visibility.is_visible(city.position))
+        return tuple(
+            city
+            for city in self.cities
+            if self.visibility is None or self.visibility.is_visible(city.position)
+        )
 
     def known_city(self, position):
         if self.reconnaissance is not None:
@@ -186,7 +222,12 @@ class CityMap:
             center = camera.world_to_screen(city.position)
             radius = max(10, marker_radius(city.capital, scale) + 3)
             over_marker = center.distance_squared_to(position) <= radius * radius
-            flag_area = pygame.Rect(round(center.x - 6), round(center.y - 44 * scale), max(10, round(40 * scale)), max(10, round(44 * scale)))
+            flag_area = pygame.Rect(
+                round(center.x - 6),
+                round(center.y - 44 * scale),
+                max(10, round(40 * scale)),
+                max(10, round(44 * scale)),
+            )
             if over_marker or (city.capital and flag_area.collidepoint(position)):
                 matches.append((center.distance_squared_to(position), city))
         return min(matches, key=lambda item: item[0])[1] if matches else None
@@ -204,11 +245,21 @@ class CityMap:
                     continue
                 radius = marker_radius(city.capital, size_scale)
                 image = marker_image(city.capital, radius, city_color(city))
-                parts = [RenderPart(-math.inf, image, image.get_rect(center=(round(point.x), round(point.y))))]
+                parts = [
+                    RenderPart(
+                        -math.inf, image, image.get_rect(center=(round(point.x), round(point.y)))
+                    )
+                ]
                 if city.capital and city.flag_color is not None:
                     height = round(44 * size_scale)
                     flag = flag_image(city.flag_color, height, self.flag_frame(city))
-                    parts.append(RenderPart(-math.inf, flag, flag.get_rect(topleft=(round(point.x) - 4, round(point.y) - height))))
+                    parts.append(
+                        RenderPart(
+                            -math.inf,
+                            flag,
+                            flag.get_rect(topleft=(round(point.x) - 4, round(point.y) - height)),
+                        )
+                    )
                 yield from faded_parts(parts, opacity)
 
     def draw(self, screen, camera):
@@ -217,7 +268,10 @@ class CityMap:
 
     def draw_minimap(self, screen, map_area):
         for city in self.displayed_cities():
-            point = (round(map_area.x + city.position[0] / WORLD_WIDTH * map_area.w), round(map_area.y + city.position[1] / WORLD_HEIGHT * map_area.h))
+            point = (
+                round(map_area.x + city.position[0] / WORLD_WIDTH * map_area.w),
+                round(map_area.y + city.position[1] / WORLD_HEIGHT * map_area.h),
+            )
             reveals = getattr(self, "reveals", None)
             opacity = reveals.city_opacity(city) if reveals is not None else 255
             if opacity <= 0:

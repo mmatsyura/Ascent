@@ -3,7 +3,7 @@ import math
 import pygame
 
 from game.aircraft.rendering import aircraft_rectangle
-from game.ui.fonts import ui_font
+from game.ui.theme import ui_font
 from game.world.routes import simplify_route
 
 
@@ -20,8 +20,19 @@ class DroneControl:
         self.font = ui_font(15, True)
 
     def drone_at(self, pointer, camera):
-        matches = [drone for drone in self.fleet.drones if drone.controllable and aircraft_rectangle(drone, camera).inflate(6, 6).collidepoint(pointer)]
-        return min(matches, key=lambda drone: pygame.Vector2(aircraft_rectangle(drone, camera).center).distance_squared_to(pointer), default=None)
+        matches = [
+            drone
+            for drone in self.fleet.drones
+            if drone.controllable
+            and aircraft_rectangle(drone, camera).inflate(6, 6).collidepoint(pointer)
+        ]
+        return min(
+            matches,
+            key=lambda drone: pygame.Vector2(
+                aircraft_rectangle(drone, camera).center
+            ).distance_squared_to(pointer),
+            default=None,
+        )
 
     def cancel(self, deselect=False):
         self.mode = None
@@ -66,7 +77,9 @@ class DroneControl:
                     self.cancel()
                     return True
             points = self.points + [camera.screen_to_world(pointer)]
-            self.fleet.assign_route(self.selected, simplify_route(points, max(3, 2 / camera.zoom)), self.append)
+            self.fleet.assign_route(
+                self.selected, simplify_route(points, max(3, 2 / camera.zoom)), self.append
+            )
         self.cancel()
         return True
 
@@ -80,7 +93,9 @@ class DroneControl:
             return
         center = camera.world_to_screen(drone.position)
         rectangle = aircraft_rectangle(drone, camera)
-        pygame.draw.line(screen, (82, 126, 130), rectangle.center, (round(center.x), round(center.y)), 1)
+        pygame.draw.line(
+            screen, (82, 126, 130), rectangle.center, (round(center.x), round(center.y)), 1
+        )
         pygame.draw.circle(screen, (105, 157, 159), (round(center.x), round(center.y)), 2, 1)
         pygame.draw.ellipse(screen, (133, 202, 196), rectangle.inflate(3, 3), 1)
         if drone.route:
@@ -94,13 +109,27 @@ class DroneControl:
             radius = round(11 + 2 * math.sin(drone.animation_time * 3))
             pygame.draw.circle(screen, (223, 135, 101), center, radius, 2)
             for offset in (-1, 1):
-                pygame.draw.line(screen, (241, 189, 131), (center[0] + offset * (radius - 3), center[1]), (center[0] + offset * (radius + 5), center[1]), 1)
-                pygame.draw.line(screen, (241, 189, 131), (center[0], center[1] + offset * (radius - 3)), (center[0], center[1] + offset * (radius + 5)), 1)
+                pygame.draw.line(
+                    screen,
+                    (241, 189, 131),
+                    (center[0] + offset * (radius - 3), center[1]),
+                    (center[0] + offset * (radius + 5), center[1]),
+                    1,
+                )
+                pygame.draw.line(
+                    screen,
+                    (241, 189, 131),
+                    (center[0], center[1] + offset * (radius - 3)),
+                    (center[0], center[1] + offset * (radius + 5)),
+                    1,
+                )
         if self.mode and self.points:
             points = [camera.world_to_screen(point) for point in self.points] + [self.pointer]
             if len(points) > 1:
                 pygame.draw.lines(screen, (164, 214, 193), False, points, 2)
-        label = self.font.render(f"{drone.definition.name} · {drone.timer_label}", True, (225, 229, 197))
+        label = self.font.render(
+            f"{drone.definition.name} · {drone.timer_label}", True, (225, 229, 197)
+        )
         area = label.get_rect(midbottom=(rectangle.centerx, rectangle.top - 7))
         area.clamp_ip(screen.get_rect().inflate(-12, -12))
         pygame.draw.rect(screen, (16, 31, 34), area.inflate(14, 8), border_radius=3)

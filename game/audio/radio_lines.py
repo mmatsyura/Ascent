@@ -7,7 +7,7 @@ RADIO_LINES = {
             "no_questions": "mykyta",
             "give_direction": "dmytro",
             "not_a_stroll": "oleksa",
-            "serious_work": "mykyta"
+            "serious_work": "mykyta",
         },
         "move": {
             "quiet_advance": "dmytro",
@@ -16,13 +16,9 @@ RADIO_LINES = {
             "legs_working": "dmytro",
             "their_surprise": "oleksa",
             "coffee_later": "mykyta",
-            "no_empty_promises": "dmytro"
+            "no_empty_promises": "dmytro",
         },
-        "stop": {
-            "no_extra_moves": "oleksa",
-            "hold_position": "mykyta",
-            "stay_sharp": "dmytro"
-        }
+        "stop": {"no_extra_moves": "oleksa", "hold_position": "mykyta", "stay_sharp": "dmytro"},
     },
     "group": {
         "select": {
@@ -32,7 +28,7 @@ RADIO_LINES = {
             "all_with_attitude": "dmytro",
             "enemy_can_keep_chaos": "oleksa",
             "many_but_quiet": "mykyta",
-            "your_move": "dmytro"
+            "your_move": "dmytro",
         },
         "move": {
             "keep_formation": "oleksa",
@@ -41,13 +37,9 @@ RADIO_LINES = {
             "making_progress": "oleksa",
             "no_bus": "mykyta",
             "nobody_lags": "dmytro",
-            "get_used_to_it": "oleksa"
+            "get_used_to_it": "oleksa",
         },
-        "stop": {
-            "hold_formation": "mykyta",
-            "watch_sectors": "dmytro",
-            "not_a_break": "oleksa"
-        }
+        "stop": {"hold_formation": "mykyta", "watch_sectors": "dmytro", "not_a_break": "oleksa"},
     },
     "tank": {
         "select": {
@@ -57,7 +49,7 @@ RADIO_LINES = {
             "tight_but_armored": "oleksa",
             "where_weight_matters": "mykyta",
             "no_fuss": "dmytro",
-            "clear_orders": "oleksa"
+            "clear_orders": "oleksa",
         },
         "move": {
             "tracks_working": "mykyta",
@@ -66,14 +58,10 @@ RADIO_LINES = {
             "asphalt_will_survive": "mykyta",
             "engine_will_speak": "dmytro",
             "driving": "oleksa",
-            "no_indicators": "mykyta"
+            "no_indicators": "mykyta",
         },
-        "stop": {
-            "turret_working": "dmytro",
-            "armor_holds": "oleksa",
-            "engine_grumbles": "mykyta"
-        }
-    }
+        "stop": {"turret_working": "dmytro", "armor_holds": "oleksa", "engine_grumbles": "mykyta"},
+    },
 }
 
 RADIO_LINES["patriot"] = {

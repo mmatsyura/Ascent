@@ -26,11 +26,19 @@ class DroneProduction:
         active = queue.jobs[0]
         if active.key != key:
             return count, None, 0
-        return count, max(0, math.ceil(active.production_duration - queue.progress)), queue.progress / active.production_duration
+        return (
+            count,
+            max(0, math.ceil(active.production_duration - queue.progress)),
+            queue.progress / active.production_duration,
+        )
 
     def state_key(self, airport):
         queue = self.queues.get(airport)
-        return (tuple(definition.key for definition in queue.jobs), int(queue.progress)) if queue is not None else None
+        return (
+            (tuple(definition.key for definition in queue.jobs), int(queue.progress))
+            if queue is not None
+            else None
+        )
 
     def cancel(self, airport, key):
         queue = self.queues.get(airport)

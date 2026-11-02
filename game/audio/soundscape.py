@@ -19,7 +19,7 @@ class Soundscape:
         self.next_notification = 0
         self.sounds = {}
         self.music_loaded = False
-        self.music_level = .08
+        self.music_level = 0.08
         self.gain = 0
         self.next_click = 0
         if pygame.mixer.get_init() is None:
@@ -35,25 +35,34 @@ class Soundscape:
         duration = 3.4
         moments = np.arange(round(rate * duration)) / rate
         fanfare = np.zeros(len(moments))
-        for start, frequency, length in ((0, 392, .5), (.35, 493.88, .5), (.7, 587.33, .6), (1.15, 783.99, 1.9)):
+        for start, frequency, length in (
+            (0, 392, 0.5),
+            (0.35, 493.88, 0.5),
+            (0.7, 587.33, 0.6),
+            (1.15, 783.99, 1.9),
+        ):
             time = moments - start
-            envelope = np.clip(time / .04, 0, 1) * np.clip((length - time) / .35, 0, 1)
-            wave = np.sin(math.tau * frequency * time) + .25 * np.sin(math.tau * frequency * 2 * time)
-            fanfare += wave * envelope * .07
+            envelope = np.clip(time / 0.04, 0, 1) * np.clip((length - time) / 0.35, 0, 1)
+            wave = np.sin(math.tau * frequency * time) + 0.25 * np.sin(
+                math.tau * frequency * 2 * time
+            )
+            fanfare += wave * envelope * 0.07
         samples = np.rint(fanfare * 32767).astype(np.int16)
         if channels == 2:
             samples = np.repeat(samples[:, None], 2, axis=1)
         self.victory_sound = pygame.sndarray.make_sound(np.ascontiguousarray(samples))
         for key, frequency in (("click", 620), ("select", 460), ("order", 540)):
-            time = np.arange(round(rate * .09)) / rate
+            time = np.arange(round(rate * 0.09)) / rate
             envelope = (1 - np.exp(-time * 850)) * np.exp(-time * 62)
-            wave = np.sin(math.tau * frequency * time) + .28 * np.sin(math.tau * frequency * 1.5 * time)
+            wave = np.sin(math.tau * frequency * time) + 0.28 * np.sin(
+                math.tau * frequency * 1.5 * time
+            )
             samples = np.rint(wave * envelope * 2400).astype(np.int16)
             if channels == 2:
                 samples = np.repeat(samples[:, None], 2, axis=1)
             self.sounds[key] = pygame.sndarray.make_sound(np.ascontiguousarray(samples))
         directory = Path(__file__).resolve().parents[1] / "assets" / "audio"
-        notification_file = directory / 'notification.mp3'
+        notification_file = directory / "notification.mp3"
         if notification_file.is_file():
             try:
                 self.notification_sound = pygame.mixer.Sound(str(notification_file))
@@ -68,7 +77,7 @@ class Soundscape:
         path = directory / "music" / "background_music.flac"
         if not path.is_file():
             path = directory / "background_music.mp3"
-            self.music_level = .008
+            self.music_level = 0.008
         if path.is_file():
             try:
                 pygame.mixer.music.load(str(path))
@@ -81,12 +90,12 @@ class Soundscape:
     def create_explosion(self, rate, channels):
         time = np.arange(round(rate * 1.35)) / rate
         noise = np.random.default_rng(56).uniform(-1, 1, len(time))
-        rumble = np.convolve(noise, np.ones(23) / 23, mode='same')
+        rumble = np.convolve(noise, np.ones(23) / 23, mode="same")
         envelope = (1 - np.exp(-time * 220)) * np.exp(-time * 4.8)
-        wave = (np.sin(math.tau * (63 * time - 15 * time * time)) * .23 + rumble * 2.1) * envelope
-        wave += noise * np.exp(-time * 55) * .17
-        wave *= np.clip((1.35 - time) / .15, 0, 1)
-        samples = np.rint(np.clip(wave, -.7, .7) * 32767).astype(np.int16)
+        wave = (np.sin(math.tau * (63 * time - 15 * time * time)) * 0.23 + rumble * 2.1) * envelope
+        wave += noise * np.exp(-time * 55) * 0.17
+        wave *= np.clip((1.35 - time) / 0.15, 0, 1)
+        samples = np.rint(np.clip(wave, -0.7, 0.7) * 32767).astype(np.int16)
         if channels == 2:
             samples = np.repeat(samples[:, None], 2, axis=1)
         self.explosion_sound = pygame.sndarray.make_sound(np.ascontiguousarray(samples))
@@ -98,21 +107,34 @@ class Soundscape:
         if now < self.next_explosion:
             return
         distance = pygame.Vector2(position).distance_to(camera.position)
-        gain = .25 * (.3 + .7 * min(1, camera.zoom / 1.5)) / (1 + (distance / 650) ** 2)
-        if gain < .002:
+        gain = 0.25 * (0.3 + 0.7 * min(1, camera.zoom / 1.5)) / (1 + (distance / 650) ** 2)
+        if gain < 0.002:
             return
-        pan = max(-.8, min(.8, (camera.world_to_screen(position).x - camera.viewport_size[0] / 2) / camera.viewport_size[0]))
-        self.explosion_channel.set_volume(gain * math.sqrt((1 - pan) / 2), gain * math.sqrt((1 + pan) / 2))
+        pan = max(
+            -0.8,
+            min(
+                0.8,
+                (camera.world_to_screen(position).x - camera.viewport_size[0] / 2)
+                / camera.viewport_size[0],
+            ),
+        )
+        self.explosion_channel.set_volume(
+            gain * math.sqrt((1 - pan) / 2), gain * math.sqrt((1 + pan) / 2)
+        )
         self.explosion_channel.play(self.explosion_sound)
         self.next_explosion = now + 180
 
     def information(self):
-        if self.notification_channel is None or self.notification_sound is None or pygame.mixer.get_init() is None:
+        if (
+            self.notification_channel is None
+            or self.notification_sound is None
+            or pygame.mixer.get_init() is None
+        ):
             return False
         now = pygame.time.get_ticks()
         if now < self.next_notification or self.notification_channel.get_busy():
             return False
-        self.notification_channel.set_volume(.14, .14)
+        self.notification_channel.set_volume(0.14, 0.14)
         self.notification_channel.play(self.notification_sound)
         self.next_notification = now + round(self.notification_sound.get_length() * 1000) + 5000
         return True
@@ -124,23 +146,35 @@ class Soundscape:
         if now < self.next_click:
             return
         self.next_click = now + 90
-        self.channel.set_volume(.35, .35)
+        self.channel.set_volume(0.35, 0.35)
         self.channel.play(self.sounds.get(kind, self.sounds["click"]))
 
     def purchase(self):
-        if self.purchase_sound is None or self.purchase_channel is None or pygame.mixer.get_init() is None:
+        if (
+            self.purchase_sound is None
+            or self.purchase_channel is None
+            or pygame.mixer.get_init() is None
+        ):
             return
         self.channel.stop()
-        self.purchase_channel.set_volume(.4, .4)
+        self.purchase_channel.set_volume(0.4, 0.4)
         self.purchase_channel.play(self.purchase_sound)
 
     def celebrate(self):
-        if self.victory_sound is not None and self.purchase_channel is not None and pygame.mixer.get_init() is not None:
-            self.purchase_channel.set_volume(.4, .4)
+        if (
+            self.victory_sound is not None
+            and self.purchase_channel is not None
+            and pygame.mixer.get_init() is not None
+        ):
+            self.purchase_channel.set_volume(0.4, 0.4)
             self.purchase_channel.play(self.victory_sound)
 
     def update(self, duration, focused=True, paused=False, speaking=False):
-        if not focused and self.purchase_channel is not None and pygame.mixer.get_init() is not None:
+        if (
+            not focused
+            and self.purchase_channel is not None
+            and pygame.mixer.get_init() is not None
+        ):
             self.purchase_channel.fadeout(100)
             self.explosion_channel.fadeout(100)
             self.notification_channel.fadeout(100)
@@ -148,10 +182,10 @@ class Soundscape:
             return
         target = self.music_level if focused else 0
         if paused:
-            target *= .45
+            target *= 0.45
         if speaking:
-            target *= .35
-        self.gain += (target - self.gain) * -math.expm1(-max(0, duration) / .8)
+            target *= 0.35
+        self.gain += (target - self.gain) * -math.expm1(-max(0, duration) / 0.8)
         pygame.mixer.music.set_volume(self.gain)
 
     def close(self):

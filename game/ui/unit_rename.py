@@ -4,8 +4,7 @@ import unicodedata
 import pygame
 
 from game.ui.clipboard import read_text, write_text
-from game.ui.fonts import ui_font
-from game.ui.theme import ACCENT, BORDER, MUTED, TEXT, draw_button, panel_surface
+from game.ui.theme import ACCENT, BORDER, MUTED, TEXT, draw_button, panel_surface, ui_font
 
 
 class UnitRename:
@@ -68,9 +67,11 @@ class UnitRename:
         self.unit = None
 
     def insert(self, text):
-        text = unicodedata.normalize("NFC", "".join(character for character in text if character.isprintable()))
+        text = unicodedata.normalize(
+            "NFC", "".join(character for character in text if character.isprintable())
+        )
         first, last = self.selection
-        text = text[:32 - len(self.text) + last - first]
+        text = text[: 32 - len(self.text) + last - first]
         self.text = self.text[:first] + text + self.text[last:]
         self.caret = first + len(text)
         self.anchor = self.caret
@@ -111,7 +112,11 @@ class UnitRename:
                     self.insert(pasted)
             elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
                 if self.anchor == self.caret:
-                    self.anchor = max(0, self.caret - 1) if event.key == pygame.K_BACKSPACE else min(len(self.text), self.caret + 1)
+                    self.anchor = (
+                        max(0, self.caret - 1)
+                        if event.key == pygame.K_BACKSPACE
+                        else min(len(self.text), self.caret + 1)
+                    )
                 self.insert("")
             elif event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_HOME, pygame.K_END):
                 first, last = self.selection
@@ -122,7 +127,9 @@ class UnitRename:
                 elif event.key == pygame.K_LEFT:
                     self.caret = first if first != last and not shift else max(0, self.caret - 1)
                 else:
-                    self.caret = last if first != last and not shift else min(len(self.text), self.caret + 1)
+                    self.caret = (
+                        last if first != last and not shift else min(len(self.text), self.caret + 1)
+                    )
                 if not shift:
                     self.anchor = self.caret
                 self.elapsed = 0
@@ -142,13 +149,16 @@ class UnitRename:
 
     def character_at(self, horizontal):
         coordinate = horizontal - self.input_area.x - 12 + self.scroll
-        return min(range(len(self.text) + 1), key=lambda index: abs(self.font.size(self.text[:index])[0] - coordinate))
+        return min(
+            range(len(self.text) + 1),
+            key=lambda index: abs(self.font.size(self.text[:index])[0] - coordinate),
+        )
 
     def draw(self, screen, duration=1 / 60):
         self.frame_seconds = duration
         target = 1 if self.active else 0
-        self.opacity += (target - self.opacity) * -math.expm1(-max(0, duration) / .09)
-        if self.opacity < .005:
+        self.opacity += (target - self.opacity) * -math.expm1(-max(0, duration) / 0.09)
+        if self.opacity < 0.005:
             return
         if self.active:
             if self.buffer is None or self.buffer.get_size() != screen.get_size():
@@ -166,11 +176,19 @@ class UnitRename:
         overlay.fill((4, 10, 13, 155))
         screen.blit(overlay, (0, 0))
         screen.blit(panel_surface(self.panel_area.size), self.panel_area)
-        screen.blit(self.title_font.render("Назва загону", True, ACCENT), (self.panel_area.x + 27, self.panel_area.y + 23))
-        screen.blit(self.small_font.render("До 32 символів · Enter — зберегти · Esc — скасувати", True, MUTED), (self.panel_area.x + 27, self.panel_area.y + 59))
+        screen.blit(
+            self.title_font.render("Назва загону", True, ACCENT),
+            (self.panel_area.x + 27, self.panel_area.y + 23),
+        )
+        screen.blit(
+            self.small_font.render(
+                "До 32 символів · Enter — зберегти · Esc — скасувати", True, MUTED
+            ),
+            (self.panel_area.x + 27, self.panel_area.y + 59),
+        )
         pygame.draw.rect(screen, (15, 25, 29), self.input_area, border_radius=3)
         pygame.draw.rect(screen, ACCENT, self.input_area, 1, border_radius=3)
-        caret_position = self.font.size(self.text[:self.caret])[0]
+        caret_position = self.font.size(self.text[: self.caret])[0]
         self.scroll = max(0, min(self.scroll, caret_position))
         self.scroll = max(self.scroll, caret_position - self.input_area.w + 28)
         previous_clip = screen.get_clip()
@@ -181,17 +199,32 @@ class UnitRename:
         if first != last:
             selection_left = horizontal + self.font.size(self.text[:first])[0]
             selection_width = self.font.size(self.text[first:last])[0]
-            pygame.draw.rect(screen, (46, 82, 107), (selection_left, vertical - 2, selection_width, self.font.get_height() + 4))
+            pygame.draw.rect(
+                screen,
+                (46, 82, 107),
+                (selection_left, vertical - 2, selection_width, self.font.get_height() + 4),
+            )
         screen.blit(self.font.render(self.text, True, TEXT), (horizontal, vertical))
-        if math.fmod(self.elapsed, 1) < .6:
-            pygame.draw.line(screen, TEXT, (horizontal + caret_position, vertical), (horizontal + caret_position, vertical + self.font.get_height()), 1)
+        if math.fmod(self.elapsed, 1) < 0.6:
+            pygame.draw.line(
+                screen,
+                TEXT,
+                (horizontal + caret_position, vertical),
+                (horizontal + caret_position, vertical + self.font.get_height()),
+                1,
+            )
         screen.set_clip(previous_clip)
         if self.error:
-            screen.blit(self.small_font.render(self.error, True, (230, 162, 130)), (self.panel_area.x + 27, self.input_area.bottom + 10))
+            screen.blit(
+                self.small_font.render(self.error, True, (230, 162, 130)),
+                (self.panel_area.x + 27, self.input_area.bottom + 10),
+            )
         for key, title in (("cancel", "Скасувати"), ("save", "Зберегти")):
             rectangle = self.buttons[key]
             hover = self.button_motion.get(key, 0)
-            hover += (float(rectangle.collidepoint(self.pointer)) - hover) * -math.expm1(-max(0, self.frame_seconds) / .085)
+            hover += (float(rectangle.collidepoint(self.pointer)) - hover) * -math.expm1(
+                -max(0, self.frame_seconds) / 0.085
+            )
             self.button_motion[key] = hover
             draw_button(screen, rectangle, hover)
             label = ui_font(15, True).render(title, True, TEXT)

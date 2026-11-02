@@ -8,13 +8,29 @@ class IconCanvas:
         self.surface = pygame.Surface((size * self.scale, size * self.scale), pygame.SRCALPHA)
 
     def polygon(self, color, points, width=0):
-        pygame.draw.polygon(self.surface, color, [(round(x * self.scale), round(y * self.scale)) for x, y in points], width * self.scale)
+        pygame.draw.polygon(
+            self.surface,
+            color,
+            [(round(x * self.scale), round(y * self.scale)) for x, y in points],
+            width * self.scale,
+        )
 
     def ellipse(self, color, rectangle, width=0):
-        pygame.draw.ellipse(self.surface, color, [round(value * self.scale) for value in rectangle], width * self.scale)
+        pygame.draw.ellipse(
+            self.surface,
+            color,
+            [round(value * self.scale) for value in rectangle],
+            width * self.scale,
+        )
 
     def line(self, color, start, end, width=1):
-        pygame.draw.line(self.surface, color, [round(value * self.scale) for value in start], [round(value * self.scale) for value in end], width * self.scale)
+        pygame.draw.line(
+            self.surface,
+            color,
+            [round(value * self.scale) for value in start],
+            [round(value * self.scale) for value in end],
+            width * self.scale,
+        )
 
     def finish(self):
         return pygame.transform.smoothscale(self.surface, (self.size, self.size))
@@ -39,10 +55,14 @@ def army_icon():
     canvas = IconCanvas()
 
     for mirrored in (False, True):
+
         def mirror(point):
             return (40 - point[0], point[1]) if mirrored else point
 
-        canvas.polygon((185, 207, 212), [mirror(point) for point in [(6, 4), (12, 7), (32, 31), (28, 33), (8, 10)]])
+        canvas.polygon(
+            (185, 207, 212),
+            [mirror(point) for point in [(6, 4), (12, 7), (32, 31), (28, 33), (8, 10)]],
+        )
         canvas.line((244, 249, 235), mirror((7, 5)), mirror((29, 31)))
         canvas.line((181, 144, 74), mirror((23, 29)), mirror((32, 23)), 3)
         canvas.line((121, 80, 43), mirror((29, 31)), mirror((34, 37)), 3)
@@ -57,8 +77,12 @@ def army_icon():
 
 def area_icon():
     canvas = IconCanvas()
-    canvas.polygon((100, 75, 43), [(3, 9), (14, 5), (25, 8), (36, 5), (36, 32), (25, 36), (14, 33), (3, 36)])
-    canvas.polygon((207, 190, 138), [(4, 8), (14, 4), (25, 7), (35, 4), (35, 30), (25, 34), (14, 31), (4, 34)])
+    canvas.polygon(
+        (100, 75, 43), [(3, 9), (14, 5), (25, 8), (36, 5), (36, 32), (25, 36), (14, 33), (3, 36)]
+    )
+    canvas.polygon(
+        (207, 190, 138), [(4, 8), (14, 4), (25, 7), (35, 4), (35, 30), (25, 34), (14, 31), (4, 34)]
+    )
     canvas.polygon((157, 158, 108), [(14, 4), (25, 7), (25, 34), (14, 31)])
     canvas.line((112, 143, 147), (7, 14), (15, 20), 2)
     canvas.line((112, 143, 147), (15, 20), (12, 30), 2)

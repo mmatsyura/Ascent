@@ -5,8 +5,8 @@ import numpy as np
 import pygame
 
 from game.settings import FOG_EDGE_WIDTH, WORLD_HEIGHT, WORLD_WIDTH
-from game.world.forest_visibility import ForestVisibility
 from game.world.fog_geometry import soften_opacity
+from game.world.forest_visibility import ForestVisibility
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,8 @@ class Visibility:
         self.sources = ()
         self.revision = 0
         self.surface = None
+        self.raw_opacity = None
+        self.render_bounds = None
         self.field = None
         self.territory_sources = None
         self.territory_field = None
@@ -50,11 +52,17 @@ class Visibility:
         self.mini_cache = {}
         self.visible_cache = {}
         self.forest = ForestVisibility(terrain, self.grid_size) if terrain is not None else None
-        self.explored = np.zeros((WORLD_HEIGHT // self.grid_size, WORLD_WIDTH // self.grid_size), dtype=bool)
+        self.explored = np.zeros(
+            (WORLD_HEIGHT // self.grid_size, WORLD_WIDTH // self.grid_size), dtype=bool
+        )
         self.explored_opacity = 104
         self.exploration_alpha = np.full(self.explored.shape, 255, dtype=np.uint8)
-        self.horizontal = np.arange(WORLD_WIDTH // self.grid_size, dtype=np.float32)[None, :] * self.grid_size
-        self.vertical = np.arange(WORLD_HEIGHT // self.grid_size, dtype=np.float32)[:, None] * self.grid_size
+        self.horizontal = (
+            np.arange(WORLD_WIDTH // self.grid_size, dtype=np.float32)[None, :] * self.grid_size
+        )
+        self.vertical = (
+            np.arange(WORLD_HEIGHT // self.grid_size, dtype=np.float32)[:, None] * self.grid_size
+        )
 
     def set_sources(self, sources, country=None):
         sources = tuple(sources)
@@ -75,13 +83,23 @@ class Visibility:
         base_changed = country_changed or static_sources != self.static_sources
         self.static_sources = static_sources
         if base_changed:
-            self.base_territory_field = self.country.field.copy() if self.country is not None else np.full((height, width), -100000, dtype=np.float32)
-            self.base_vision_field = self.country.vision.copy() if self.country is not None else self.base_territory_field.copy()
-            self.base_bounds = self.country.bounds.copy() if self.country is not None else pygame.Rect(0, 0, 0, 0)
+            self.base_territory_field = (
+                self.country.field.copy()
+                if self.country is not None
+                else np.full((height, width), -100000, dtype=np.float32)
+            )
+            self.base_vision_field = (
+                self.country.vision.copy()
+                if self.country is not None
+                else self.base_territory_field.copy()
+            )
+            self.base_bounds = (
+                self.country.bounds.copy() if self.country is not None else pygame.Rect(0, 0, 0, 0)
+            )
             for source in static_sources:
                 area, distance = self.source_field(source)
                 for field in (self.base_territory_field, self.base_vision_field):
-                    patch = field[area.top:area.bottom, area.left:area.right]
+                    patch = field[area.top : area.bottom, area.left : area.right]
                     np.maximum(patch, distance, out=patch)
                 self.base_bounds = self.base_bounds.union(area) if self.base_bounds.w else area
         if territory_changed:
@@ -95,22 +113,30 @@ class Visibility:
                 continue
             area, distance = self.source_field(source)
             if source.records_exploration:
-                patch = self.field[area.top:area.bottom, area.left:area.right]
+                patch = self.field[area.top : area.bottom, area.left : area.right]
                 np.maximum(patch, distance, out=patch)
             else:
                 temporary.append((area, distance))
             bounds = bounds.union(area) if bounds.w else area
             if source.territorial and territory_changed:
-                territory_patch = self.territory_field[area.top:area.bottom, area.left:area.right]
+                territory_patch = self.territory_field[
+                    area.top : area.bottom, area.left : area.right
+                ]
                 np.maximum(territory_patch, distance, out=territory_patch)
-                self.territory_bounds = self.territory_bounds.union(area) if self.territory_bounds.w else area
+                self.territory_bounds = (
+                    self.territory_bounds.union(area) if self.territory_bounds.w else area
+                )
 
         self.remember_visible(self.territory_field if territory_changed else None)
         for area, distance in temporary:
-            patch = self.field[area.top:area.bottom, area.left:area.right]
+            patch = self.field[area.top : area.bottom, area.left : area.right]
             np.maximum(patch, distance, out=patch)
 
-        if not territory_changed and previous_field is not None and np.array_equal(previous_field, self.field):
+        if (
+            not territory_changed
+            and previous_field is not None
+            and np.array_equal(previous_field, self.field)
+        ):
             return
 
         left, top, right, bottom = bounds.left, bounds.top, bounds.right, bounds.bottom
@@ -119,14 +145,11 @@ class Visibility:
         fade = fade * fade * (3 - 2 * fade)
         if self.surface is None:
             self.surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        self.surface.fill((0, 0, 0, 255))
-        alpha = pygame.surfarray.pixels_alpha(self.surface)
-        alpha[:] = self.exploration_alpha.T
-        patch_alpha = alpha[left:right, top:bottom]
-        np.minimum(patch_alpha, np.round(fade.T * 255).astype(np.uint8), out=patch_alpha)
-        del patch_alpha
-        alpha[:]=soften_opacity(np.asarray(alpha).T).T
-        del alpha
+            self.surface.fill((0, 0, 0, 255))
+        opacity = self.exploration_alpha.copy()
+        patch_alpha = opacity[top:bottom, left:right]
+        np.minimum(patch_alpha, np.round(fade * 255).astype(np.uint8), out=patch_alpha)
+        self.update_opacity(opacity)
 
         if territory_changed:
             mask = self.territory_field >= 0
@@ -137,14 +160,66 @@ class Visibility:
         self.frame_key = None
         self.mini_cache.clear()
 
+    def update_opacity(self, opacity):
+        height, width = opacity.shape
+        left, top, right, bottom = 0, 0, width, height
+        if self.raw_opacity is not None:
+            changed = opacity != self.raw_opacity
+            rows = np.flatnonzero(changed.any(axis=1))
+            if not len(rows):
+                return
+            columns = np.flatnonzero(changed.any(axis=0))
+            left, right = max(0, int(columns[0]) - 1), min(width, int(columns[-1]) + 2)
+            top, bottom = max(0, int(rows[0]) - 1), min(height, int(rows[-1]) + 2)
+        self.raw_opacity = opacity
+        transparent = opacity < 255
+        rows = np.flatnonzero(transparent.any(axis=1))
+        columns = np.flatnonzero(transparent.any(axis=0))
+        self.render_bounds = (
+            pygame.Rect(
+                (int(columns[0]) - 2) * self.grid_size,
+                (int(rows[0]) - 2) * self.grid_size,
+                (int(columns[-1] - columns[0]) + 5) * self.grid_size,
+                (int(rows[-1] - rows[0]) + 5) * self.grid_size,
+            )
+            if len(rows) and len(columns)
+            else pygame.Rect(0, 0, 0, 0)
+        )
+        sample_left, sample_right = max(0, left - 1), min(width, right + 1)
+        sample_top, sample_bottom = max(0, top - 1), min(height, bottom + 1)
+        softened = soften_opacity(opacity[sample_top:sample_bottom, sample_left:sample_right])
+        alpha = pygame.surfarray.pixels_alpha(self.surface)
+        alpha[left:right, top:bottom] = softened[
+            top - sample_top : bottom - sample_top, left - sample_left : right - sample_left
+        ].T
+        del alpha
+
+    def screen_bounds(self, camera):
+        if self.render_bounds is None:
+            return pygame.Rect((0, 0), camera.viewport_size)
+        corner = camera.world_to_screen(self.render_bounds.topleft)
+        return pygame.Rect(
+            math.floor(corner.x) - 4,
+            math.floor(corner.y) - 4,
+            math.ceil(self.render_bounds.w * camera.zoom) + 8,
+            math.ceil(self.render_bounds.h * camera.zoom) + 8,
+        )
+
     def source_field(self, source):
         reach = source.radius + FOG_EDGE_WIDTH + self.grid_size
         left = max(0, int((source.position[0] - reach) // self.grid_size))
-        right = min(WORLD_WIDTH // self.grid_size, math.ceil((source.position[0] + reach) / self.grid_size))
+        right = min(
+            WORLD_WIDTH // self.grid_size, math.ceil((source.position[0] + reach) / self.grid_size)
+        )
         top = max(0, int((source.position[1] - reach) // self.grid_size))
-        bottom = min(WORLD_HEIGHT // self.grid_size, math.ceil((source.position[1] + reach) / self.grid_size))
+        bottom = min(
+            WORLD_HEIGHT // self.grid_size, math.ceil((source.position[1] + reach) / self.grid_size)
+        )
         area = pygame.Rect(left, top, right - left, bottom - top)
-        distance = source.radius - np.hypot(self.horizontal[:, left:right] - source.position[0], self.vertical[top:bottom] - source.position[1])
+        distance = source.radius - np.hypot(
+            self.horizontal[:, left:right] - source.position[0],
+            self.vertical[top:bottom] - source.position[1],
+        )
         if source.forest_blocked and self.forest is not None:
             distance = self.forest.field(source, area)
         return area, distance
@@ -157,7 +232,9 @@ class Visibility:
         if not bounds.w or not bounds.h:
             return
         step = 2
-        mask_field = self.territory_mask[bounds.top:bounds.bottom:step, bounds.left:bounds.right:step]
+        mask_field = self.territory_mask[
+            bounds.top : bounds.bottom : step, bounds.left : bounds.right : step
+        ]
         inside = pygame.Surface((mask_field.shape[1], mask_field.shape[0]), pygame.SRCALPHA)
         alpha = pygame.surfarray.pixels_alpha(inside)
         alpha[:] = mask_field.T.astype(np.uint8) * 255
@@ -170,7 +247,9 @@ class Visibility:
                 continue
             for _ in range(2):
                 following = np.roll(points, -1, axis=0)
-                points = np.stack((points * .75 + following * .25, points * .25 + following * .75), axis=1).reshape(-1, 2)
+                points = np.stack(
+                    (points * 0.75 + following * 0.25, points * 0.25 + following * 0.75), axis=1
+                ).reshape(-1, 2)
             self.contours.append(points.tolist())
 
     def remember_visible(self, territory_field=None):
@@ -188,17 +267,25 @@ class Visibility:
         top, bottom = max(0, int(rows[0]) - 2), min(height, int(rows[-1]) + 3)
         sample_left, sample_right = max(0, left - 2), min(width, right + 2)
         sample_top, sample_bottom = max(0, top - 2), min(height, bottom + 2)
-        softened = self.explored[sample_top:sample_bottom, sample_left:sample_right].astype(np.float32)
+        softened = self.explored[sample_top:sample_bottom, sample_left:sample_right].astype(
+            np.float32
+        )
         for _ in range(2):
             horizontal = np.pad(softened, ((0, 0), (1, 1)), mode="edge")
             softened = (horizontal[:, :-2] + horizontal[:, 1:-1] + horizontal[:, 2:]) / 3
             vertical = np.pad(softened, ((1, 1), (0, 0)), mode="edge")
             softened = (vertical[:-2] + vertical[1:-1] + vertical[2:]) / 3
-        patch = softened[top - sample_top:bottom - sample_top, left - sample_left:right - sample_left]
-        self.exploration_alpha[top:bottom, left:right] = np.rint(255 - patch * (255 - self.explored_opacity)).astype(np.uint8)
+        patch = softened[
+            top - sample_top : bottom - sample_top, left - sample_left : right - sample_left
+        ]
+        self.exploration_alpha[top:bottom, left:right] = np.rint(
+            255 - patch * (255 - self.explored_opacity)
+        ).astype(np.uint8)
 
     def is_visible(self, position):
-        if self.field is None or not (0 <= position[0] < WORLD_WIDTH and 0 <= position[1] < WORLD_HEIGHT):
+        if self.field is None or not (
+            0 <= position[0] < WORLD_WIDTH and 0 <= position[1] < WORLD_HEIGHT
+        ):
             return False
         key = tuple(position)
         cached = self.visible_cache.get(key)
@@ -210,7 +297,10 @@ class Visibility:
         next_row = min(row + 1, self.field.shape[0] - 1)
         fraction_x, fraction_y = horizontal - column, vertical - row
         top = self.field[row, column] * (1 - fraction_x) + self.field[row, next_column] * fraction_x
-        bottom = self.field[next_row, column] * (1 - fraction_x) + self.field[next_row, next_column] * fraction_x
+        bottom = (
+            self.field[next_row, column] * (1 - fraction_x)
+            + self.field[next_row, next_column] * fraction_x
+        )
         result = bool(top * (1 - fraction_y) + bottom * fraction_y >= 0)
         if len(self.visible_cache) >= 4096:
             self.visible_cache.clear()
@@ -234,34 +324,51 @@ class Visibility:
         following_rows = np.minimum(rows + 1, self.field.shape[0] - 1)
         dx, dy = horizontal - columns, vertical - rows
         top = self.field[rows, columns] * (1 - dx) + self.field[rows, following_columns] * dx
-        bottom = self.field[following_rows, columns] * (1 - dx) + self.field[following_rows, following_columns] * dx
+        bottom = (
+            self.field[following_rows, columns] * (1 - dx)
+            + self.field[following_rows, following_columns] * dx
+        )
         return self.explored[rows, columns] | (top * (1 - dy) + bottom * dy >= 0)
 
     def visible_cells(self, shape, step, center_offset):
-        horizontal = (np.arange(shape[1], dtype=np.float32)[None, :] + center_offset) * step / self.grid_size
-        vertical = (np.arange(shape[0], dtype=np.float32)[:, None] + center_offset) * step / self.grid_size
+        horizontal = (
+            (np.arange(shape[1], dtype=np.float32)[None, :] + center_offset) * step / self.grid_size
+        )
+        vertical = (
+            (np.arange(shape[0], dtype=np.float32)[:, None] + center_offset) * step / self.grid_size
+        )
         columns = np.clip(horizontal.astype(np.int32), 0, self.field.shape[1] - 1)
         rows = np.clip(vertical.astype(np.int32), 0, self.field.shape[0] - 1)
         next_columns = np.minimum(columns + 1, self.field.shape[1] - 1)
         next_rows = np.minimum(rows + 1, self.field.shape[0] - 1)
         fraction_x = horizontal - columns.astype(np.float32)
         fraction_y = vertical - rows.astype(np.float32)
-        top = self.field[rows, columns] * (1 - fraction_x) + self.field[rows, next_columns] * fraction_x
-        bottom = self.field[next_rows, columns] * (1 - fraction_x) + self.field[next_rows, next_columns] * fraction_x
+        top = (
+            self.field[rows, columns] * (1 - fraction_x)
+            + self.field[rows, next_columns] * fraction_x
+        )
+        bottom = (
+            self.field[next_rows, columns] * (1 - fraction_x)
+            + self.field[next_rows, next_columns] * fraction_x
+        )
         return top * (1 - fraction_y) + bottom * fraction_y >= 0
 
     def known_cells(self, shape, step, center_offset):
-        if shape == self.field.shape and step == self.grid_size and center_offset == .5:
+        if shape == self.field.shape and step == self.grid_size and center_offset == 0.5:
             padded = np.pad(self.field, ((0, 1), (0, 1)), mode="edge")
             middle = padded[:-1, :-1] + padded[:-1, 1:]
             middle += padded[1:, :-1]
             middle += padded[1:, 1:]
             return self.explored | (middle >= 0)
-        horizontal = ((np.arange(shape[1]) + center_offset) * step / self.grid_size).astype(np.int32)
+        horizontal = ((np.arange(shape[1]) + center_offset) * step / self.grid_size).astype(
+            np.int32
+        )
         vertical = ((np.arange(shape[0]) + center_offset) * step / self.grid_size).astype(np.int32)
         horizontal = np.clip(horizontal, 0, self.explored.shape[1] - 1)
         vertical = np.clip(vertical, 0, self.explored.shape[0] - 1)
-        return self.explored[vertical[:, None], horizontal[None, :]] | self.visible_cells(shape, step, center_offset)
+        return self.explored[vertical[:, None], horizontal[None, :]] | self.visible_cells(
+            shape, step, center_offset
+        )
 
     def draw(self, screen, camera):
         zoom_changed = self.frame_zoom is not None and self.frame_zoom != camera.zoom
@@ -273,25 +380,41 @@ class Visibility:
         top = camera.position.y - size[1] / camera.zoom / 2
         view_right = left + size[0] / camera.zoom
         view_bottom = top + size[1] / camera.zoom
-        covered = (self.frame_bounds is not None and self.frame_bounds[0] <= left and self.frame_bounds[1] <= top
-                   and self.frame_bounds[2] >= view_right and self.frame_bounds[3] >= view_bottom)
+        covered = (
+            self.frame_bounds is not None
+            and self.frame_bounds[0] <= left
+            and self.frame_bounds[1] <= top
+            and self.frame_bounds[2] >= view_right
+            and self.frame_bounds[3] >= view_bottom
+        )
         if key != self.frame_key or not covered:
             margin = 0 if preview else self.frame_margin / camera.zoom
             column = max(0, math.floor((left - margin) / self.grid_size))
             row = max(0, math.floor((top - margin) / self.grid_size))
             right = min(self.surface.get_width(), math.ceil((view_right + margin) / self.grid_size))
-            bottom = min(self.surface.get_height(), math.ceil((view_bottom + margin) / self.grid_size))
+            bottom = min(
+                self.surface.get_height(), math.ceil((view_bottom + margin) / self.grid_size)
+            )
             area = pygame.Rect(column, row, right - column, bottom - row)
             scale = self.grid_size * camera.zoom
             scaled_size = (math.ceil(area.w * scale), math.ceil(area.h * scale))
-            buffer_size = (size[0] + self.frame_margin * 2 + 40, size[1] + self.frame_margin * 2 + 40)
+            buffer_size = (
+                size[0] + self.frame_margin * 2 + 40,
+                size[1] + self.frame_margin * 2 + 40,
+            )
             if self.scaling_buffer is None or self.scaling_buffer.get_size() != buffer_size:
                 self.scaling_buffer = pygame.Surface(buffer_size, pygame.SRCALPHA)
             scaled = self.scaling_buffer.subsurface((0, 0, *scaled_size))
             if preview:
                 preview_size = ((scaled_size[0] + 1) // 2, (scaled_size[1] + 1) // 2)
-                if self.preview_buffer is None or self.preview_buffer.get_width() < preview_size[0] or self.preview_buffer.get_height() < preview_size[1]:
-                    self.preview_buffer = pygame.Surface(((buffer_size[0] + 1) // 2, (buffer_size[1] + 1) // 2), pygame.SRCALPHA)
+                if (
+                    self.preview_buffer is None
+                    or self.preview_buffer.get_width() < preview_size[0]
+                    or self.preview_buffer.get_height() < preview_size[1]
+                ):
+                    self.preview_buffer = pygame.Surface(
+                        ((buffer_size[0] + 1) // 2, (buffer_size[1] + 1) // 2), pygame.SRCALPHA
+                    )
                 working = self.preview_buffer.subsurface((0, 0, *preview_size))
             else:
                 working = scaled
@@ -304,20 +427,38 @@ class Visibility:
             origin_x, origin_y = column * self.grid_size, row * self.grid_size
             for contour in self.contours:
                 if len(contour) > 2:
-                    points = [(round((horizontal - origin_x) * camera.zoom), round((vertical - origin_y) * camera.zoom)) for horizontal, vertical in contour]
+                    points = [
+                        (
+                            round((horizontal - origin_x) * camera.zoom),
+                            round((vertical - origin_y) * camera.zoom),
+                        )
+                        for horizontal, vertical in contour
+                    ]
                     pygame.draw.lines(scaled, (0, 0, 0, 255), True, points, 2)
             self.frame_surface = scaled
             self.stable_fog_frames = 0
             self.fog_accelerated = False
-            self.frame_bounds = (origin_x, origin_y, right * self.grid_size, bottom * self.grid_size)
+            self.frame_bounds = (
+                origin_x,
+                origin_y,
+                right * self.grid_size,
+                bottom * self.grid_size,
+            )
             self.frame_key = key
-        position = (round((self.frame_bounds[0] - left) * camera.zoom), round((self.frame_bounds[1] - top) * camera.zoom))
+        position = (
+            round((self.frame_bounds[0] - left) * camera.zoom),
+            round((self.frame_bounds[1] - top) * camera.zoom),
+        )
         self.stable_fog_frames += 1
         if self.stable_fog_frames == 24:
             self.frame_surface = self.frame_surface.copy()
             self.frame_surface.set_alpha(255, pygame.RLEACCEL)
             self.fog_accelerated = True
-        screen.blit(self.frame_surface, position, special_flags=pygame.BLEND_ALPHA_SDL2 if self.fog_accelerated else 0)
+        screen.blit(
+            self.frame_surface,
+            position,
+            special_flags=pygame.BLEND_ALPHA_SDL2 if self.fog_accelerated else 0,
+        )
 
     def draw_minimap(self, screen, map_area):
         key = (map_area.size, self.revision)
@@ -328,7 +469,13 @@ class Visibility:
             del alpha
             for contour in self.contours:
                 if len(contour) > 2:
-                    points = [(round(horizontal / WORLD_WIDTH * map_area.w), round(vertical / WORLD_HEIGHT * map_area.h)) for horizontal, vertical in contour]
+                    points = [
+                        (
+                            round(horizontal / WORLD_WIDTH * map_area.w),
+                            round(vertical / WORLD_HEIGHT * map_area.h),
+                        )
+                        for horizontal, vertical in contour
+                    ]
                     pygame.draw.lines(overlay, (0, 0, 0, 255), True, points, 1)
             self.mini_cache[key] = overlay
         screen.blit(self.mini_cache[key], map_area)

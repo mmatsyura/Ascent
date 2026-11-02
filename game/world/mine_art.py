@@ -6,7 +6,9 @@ def mine_shape():
     canvas = IconCanvas(128)
     ground_shadow(canvas, (3, 100, 121, 25))
     canvas.polygon((125, 127, 91), [(5, 97), (32, 79), (99, 80), (124, 99), (105, 119), (31, 123)])
-    canvas.polygon((111, 116, 83), [(6, 98), (32, 111), (107, 115), (124, 99), (105, 120), (31, 123)])
+    canvas.polygon(
+        (111, 116, 83), [(6, 98), (32, 111), (107, 115), (124, 99), (105, 120), (31, 123)]
+    )
     for horizontal, vertical in ((12, 100), (34, 114), (106, 112), (112, 96), (22, 91)):
         canvas.line((151, 150, 109), (horizontal, vertical), (horizontal + 4, vertical + 1), 1)
     canvas.polygon((94, 103, 82), [(58, 88), (83, 74), (117, 86), (94, 105)])
@@ -21,7 +23,12 @@ def mine_shape():
     canvas.polygon((44, 60, 58), [(108, 94), (87, 14), (92, 13), (115, 94)])
     canvas.line((128, 143, 122), (111, 93), (89, 15), 2)
     canvas.line((47, 63, 59), (86, 79), (85, 14), 4)
-    for first, last in (((69, 55), (102, 68)), ((66, 77), (97, 46)), ((72, 31), (97, 46)), ((69, 55), (91, 25))):
+    for first, last in (
+        ((69, 55), (102, 68)),
+        ((66, 77), (97, 46)),
+        ((72, 31), (97, 46)),
+        ((69, 55), (91, 25)),
+    ):
         canvas.line((49, 65, 60), first, last, 3)
         canvas.line((142, 150, 118), first, last, 1)
     canvas.polygon((70, 88, 80), [(64, 12), (77, 5), (98, 12), (84, 22)])
@@ -42,16 +49,40 @@ def mine_shape():
     canvas.line((166, 177, 143), (7, 70), (25, 55), 2)
     canvas.line((144, 160, 135), (25, 55), (59, 66), 1)
     for index in range(1, 5):
-        canvas.line((66, 89, 86), (6 + index * 7, 71 + index * 2.5), (25 + index * 7, 55 + index * 2.5), 1)
+        canvas.line(
+            (66, 89, 86), (6 + index * 7, 71 + index * 2.5), (25 + index * 7, 55 + index * 2.5), 1
+        )
     for horizontal, vertical in ((15, 77), (27, 82)):
-        canvas.polygon((49, 65, 56), [(horizontal, vertical), (horizontal + 8, vertical + 3), (horizontal + 8, vertical + 12), (horizontal, vertical + 9)])
-        canvas.polygon((218, 181, 105), [(horizontal + 1, vertical + 1), (horizontal + 7, vertical + 3), (horizontal + 7, vertical + 10), (horizontal + 1, vertical + 8)])
-        canvas.line((117, 112, 75), (horizontal + 4, vertical + 2), (horizontal + 4, vertical + 10), 1)
+        canvas.polygon(
+            (49, 65, 56),
+            [
+                (horizontal, vertical),
+                (horizontal + 8, vertical + 3),
+                (horizontal + 8, vertical + 12),
+                (horizontal, vertical + 9),
+            ],
+        )
+        canvas.polygon(
+            (218, 181, 105),
+            [
+                (horizontal + 1, vertical + 1),
+                (horizontal + 7, vertical + 3),
+                (horizontal + 7, vertical + 10),
+                (horizontal + 1, vertical + 8),
+            ],
+        )
+        canvas.line(
+            (117, 112, 75), (horizontal + 4, vertical + 2), (horizontal + 4, vertical + 10), 1
+        )
     canvas.polygon((42, 58, 51), [(43, 85), (51, 79), (51, 94), (43, 100)])
-    canvas.polygon((111, 120, 92), [(93, 79), (100, 62), (112, 66), (121, 91), (113, 107), (96, 103)])
+    canvas.polygon(
+        (111, 120, 92), [(93, 79), (100, 62), (112, 66), (121, 91), (113, 107), (96, 103)]
+    )
     canvas.polygon((142, 145, 104), [(93, 79), (100, 62), (112, 66), (107, 79), (96, 91)])
     canvas.polygon((53, 65, 55), [(98, 91), (105, 80), (114, 84), (117, 99), (111, 107), (98, 102)])
-    canvas.polygon((14, 29, 29), [(101, 92), (106, 84), (111, 87), (113, 99), (108, 103), (101, 100)])
+    canvas.polygon(
+        (14, 29, 29), [(101, 92), (106, 84), (111, 87), (113, 99), (108, 103), (101, 100)]
+    )
     canvas.line((154, 136, 89), (98, 91), (105, 80), 3)
     canvas.line((154, 136, 89), (105, 80), (114, 84), 3)
     canvas.line((113, 104, 69), (114, 84), (117, 99), 3)
@@ -59,7 +90,15 @@ def mine_shape():
     canvas.line((68, 84, 74), (20, 55), (20, 36), 5)
     canvas.ellipse((123, 141, 121), (17, 33, 7, 4))
     for horizontal, vertical in ((19, 105), (27, 109), (37, 111)):
-        canvas.polygon((111, 105, 72), [(horizontal - 7, vertical + 2), (horizontal - 2, vertical - 6), (horizontal + 3, vertical - 3), (horizontal + 8, vertical + 4)])
+        canvas.polygon(
+            (111, 105, 72),
+            [
+                (horizontal - 7, vertical + 2),
+                (horizontal - 2, vertical - 6),
+                (horizontal + 3, vertical - 3),
+                (horizontal + 8, vertical + 4),
+            ],
+        )
         canvas.line((175, 153, 90), (horizontal - 4, vertical), (horizontal - 2, vertical - 4), 1)
     canvas.ellipse((231, 188, 105), (105, 81, 3, 4))
     return canvas.surface.convert_alpha()

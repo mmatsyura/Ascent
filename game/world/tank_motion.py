@@ -19,10 +19,12 @@ def tank_drive_factor(unit, elapsed_seconds):
     if not unit.route:
         return 1
     direction = pygame.Vector2(unit.route[0]) - unit.position
-    if direction.length_squared() < .001:
+    if direction.length_squared() < 0.001:
         return 1
     target = math.degrees(math.atan2(direction.x, -direction.y)) % 360
-    unit.hull_angle = rotate_towards(unit.hull_angle, target, 36 if unit.is_patriot else 48, elapsed_seconds)
+    unit.hull_angle = rotate_towards(
+        unit.hull_angle, target, 36 if unit.is_patriot else 48, elapsed_seconds
+    )
     difference = abs(angle_difference(target, unit.hull_angle))
     return max(0, min(1, (65 - difference) / 50))
 
@@ -34,7 +36,7 @@ def update_tank(unit, elapsed_seconds, terrain, previous_position):
     unit.travelled += distance
     if unit.is_patriot:
         return
-    if unit.route or distance > .001:
+    if unit.route or distance > 0.001:
         if unit.idle_elapsed > 0 or unit.scanning:
             unit.next_scan = unit.randomizer.uniform(11, 19)
         unit.idle_elapsed = 0
@@ -53,11 +55,13 @@ def update_tank(unit, elapsed_seconds, terrain, previous_position):
                 unit.turret_target = unit.hull_angle
                 unit.next_scan = unit.idle_elapsed + unit.randomizer.uniform(12, 20)
         turret_speed = 4
-    unit.turret_angle = rotate_towards(unit.turret_angle, unit.turret_target, turret_speed, elapsed_seconds)
+    unit.turret_angle = rotate_towards(
+        unit.turret_angle, unit.turret_target, turret_speed, elapsed_seconds
+    )
     for mark in unit.tracks:
         mark[2] += elapsed_seconds
     unit.tracks[:] = [mark for mark in unit.tracks if mark[2] < 20]
-    if distance > .001:
+    if distance > 0.001:
         remaining = 4 - unit.track_distance
         while remaining <= distance + 1e-7:
             position = start.lerp(end, min(1, remaining / distance))

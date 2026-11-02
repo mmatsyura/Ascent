@@ -5,11 +5,7 @@ import pygame
 
 from game.world.biomes import Biome
 from game.world.squad_motion import initialize_squad
-from game.world.tanks import TankUnit
-from game.world.units import UnitToken
-from game.world.patriots import PatriotUnit
-from game.world.anti_tank import AntiTankUnit
-
+from game.world.units import AntiTankUnit, PatriotUnit, TankUnit, UnitToken
 
 GARRISON_LIMIT = 15
 DISBAND_RADIUS = 230
@@ -51,11 +47,18 @@ class Recruitment:
         self.next_number = sum(not unit.is_tank for unit in control.units) + 1
 
     def valid_barracks(self, building):
-        return building in self.buildings.buildings and building.owner == self.owner and building.completed and building.definition.key == "barracks"
+        return (
+            building in self.buildings.buildings
+            and building.owner == self.owner
+            and building.completed
+            and building.definition.key == "barracks"
+        )
 
     def garrison(self, building):
         state = self.garrisons.setdefault(building, Garrison())
-        state.units[:] = [unit for unit in state.units if unit in self.control.units and unit.owner == self.owner]
+        state.units[:] = [
+            unit for unit in state.units if unit in self.control.units and unit.owner == self.owner
+        ]
         return state
 
     def recruit(self, building, key):
@@ -79,9 +82,14 @@ class Recruitment:
         for radius in (100, 130, 165, 200):
             for angle in range(45, 405, 30):
                 point = origin + pygame.Vector2(radius, 0).rotate(angle)
-                if terrain.biome_at(point) == Biome.WATER or not terrain.can_place_soldier(point, 8):
+                if terrain.biome_at(point) == Biome.WATER or not terrain.can_place_soldier(
+                    point, 8
+                ):
                     continue
-                if any(other.area.inflate(24, 24).collidepoint(point) for other in self.buildings.buildings):
+                if any(
+                    other.area.inflate(24, 24).collidepoint(point)
+                    for other in self.buildings.buildings
+                ):
                     continue
                 if any(point.distance_to(unit.position) < 80 for unit in self.control.units):
                     continue
@@ -114,8 +122,17 @@ class Recruitment:
                 position = self.spawn_position(building)
                 if position is None:
                     break
-                unit_type = {"infantry": UnitToken, "tank": TankUnit, "patriot": PatriotUnit, "anti_tank": AntiTankUnit}[definition.key]
-                name = f"{self.next_number}-й піхотний загін" if definition.key == "infantry" else f"{definition.name} №{self.next_number}"
+                unit_type = {
+                    "infantry": UnitToken,
+                    "tank": TankUnit,
+                    "patriot": PatriotUnit,
+                    "anti_tank": AntiTankUnit,
+                }[definition.key]
+                name = (
+                    f"{self.next_number}-й піхотний загін"
+                    if definition.key == "infantry"
+                    else f"{definition.name} №{self.next_number}"
+                )
                 unit = unit_type(position, name=name, owner=self.owner, source_barracks=building)
                 unit.update_environment(self.buildings.terrain.biome_at(position), 0)
                 if not unit.is_tank:
@@ -130,9 +147,15 @@ class Recruitment:
                 self.notify(f"Підрозділ готовий: {unit.name}")
 
     def can_disband(self, building, unit):
-        return (self.valid_barracks(building) and unit in self.garrison(building).units
-                and pygame.Vector2(unit.position).distance_to(building.position) <= DISBAND_RADIUS
-                and all(member.position.distance_to(building.position) <= DISBAND_RADIUS for member in unit.members))
+        return (
+            self.valid_barracks(building)
+            and unit in self.garrison(building).units
+            and pygame.Vector2(unit.position).distance_to(building.position) <= DISBAND_RADIUS
+            and all(
+                member.position.distance_to(building.position) <= DISBAND_RADIUS
+                for member in unit.members
+            )
+        )
 
     def disband(self, building, unit):
         if not self.can_disband(building, unit):

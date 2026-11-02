@@ -14,7 +14,11 @@ def simplify_route(points, tolerance=4):
         furthest = None
         maximum_distance = tolerance * tolerance
         for index in range(first + 1, last):
-            progress = max(0, min(1, (points[index] - points[first]).dot(direction) / length_squared)) if length_squared else 0
+            progress = (
+                max(0, min(1, (points[index] - points[first]).dot(direction) / length_squared))
+                if length_squared
+                else 0
+            )
             projection = points[first] + direction * progress
             distance = points[index].distance_squared_to(projection)
             if distance > maximum_distance:

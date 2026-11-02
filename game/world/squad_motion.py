@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
+from itertools import chain
 import math
 import random
 
 import pygame
 
-from game.world.navigation import Navigation
 from game.world.biomes import Biome
+from game.world.navigation import Navigation
 from game.world.squad_navigation import advance_member
 
 
@@ -37,7 +38,7 @@ class SquadMember:
     idle_target: pygame.Vector2 = field(default_factory=pygame.Vector2)
 
 
-OFFSETS = ((-.42, -.61), (.32, -.39), (-.73, .04), (.66, .16), (-.29, .58), (.38, .77))
+OFFSETS = ((-0.42, -0.61), (0.32, -0.39), (-0.73, 0.04), (0.66, 0.16), (-0.29, 0.58), (0.38, 0.77))
 SQUAD_RADIUS = 62
 
 
@@ -45,7 +46,7 @@ def safe_position(point, origin, terrain):
     if terrain.can_place_soldier(point, radius=4):
         return pygame.Vector2(point)
     displacement = pygame.Vector2(point) - origin
-    for fraction in (.8, .6, .4, .2, 0):
+    for fraction in (0.8, 0.6, 0.4, 0.2, 0):
         candidate = pygame.Vector2(origin) + displacement * fraction
         if terrain.can_place_soldier(candidate, radius=4):
             return candidate
@@ -58,7 +59,11 @@ def safe_position(point, origin, terrain):
 
 
 def initialize_squad(unit, terrain, navigation=None, placement_allowed=None):
-    navigation = navigation or Navigation(terrain, None, avoid_trees=True)
+    if navigation is None:
+        navigation = getattr(terrain, "formation_navigation", None)
+        if navigation is None:
+            navigation = Navigation(terrain, None, avoid_trees=True)
+    terrain.formation_navigation = navigation
     seed = int(unit.position[0] * 17 + unit.position[1] * 31)
     unit.members = []
     origin = pygame.Vector2(unit.position)
@@ -68,14 +73,32 @@ def initialize_squad(unit, terrain, navigation=None, placement_allowed=None):
         randomizer = random.Random(seed + index * 7919)
         offset = pygame.Vector2(offset).rotate(angle) * SQUAD_RADIUS
         position = anchor.copy()
-        candidates = [origin + offset.rotate(turn) * fraction for fraction in (1, .75, .5, .25) for turn in (0, 25, -25, 55, -55, 95, -95, 145, -145, 180)]
-        candidates.extend(origin + pygame.Vector2(distance, 0).rotate(turn) for distance in (12, 24, 36, 48, 60) for turn in range(0, 360, 30))
+        candidates = chain(
+            (
+                origin + offset.rotate(turn) * fraction
+                for fraction in (1, 0.75, 0.5, 0.25)
+                for turn in (0, 25, -25, 55, -55, 95, -95, 145, -145, 180)
+            ),
+            (
+                origin + pygame.Vector2(distance, 0).rotate(turn)
+                for distance in (12, 24, 36, 48, 60)
+                for turn in range(0, 360, 30)
+            ),
+        )
         for candidate in candidates:
             separated = all(candidate.distance_to(other.position) >= 12 for other in unit.members)
             city_clearance = unit.home_city is None or candidate.distance_to(unit.home_city) >= 44
             in_deployment = placement_allowed is None or placement_allowed(candidate)
-            reachable = separated and city_clearance and in_deployment and terrain.can_place_soldier(candidate, 4)
-            if reachable and navigation.find_path(anchor, candidate, navigation.allowed_cells()) is not None:
+            reachable = (
+                separated
+                and city_clearance
+                and in_deployment
+                and terrain.can_place_soldier(candidate, 4)
+            )
+            if (
+                reachable
+                and navigation.find_path(anchor, candidate, navigation.allowed_cells()) is not None
+            ):
                 position = candidate
                 break
         offset = position - origin
@@ -102,22 +125,33 @@ def update_squad(unit, elapsed_seconds, terrain, navigation):
     for member in unit.members:
         member.previous_position = member.position.copy()
         in_water = terrain.biome_at(member.position) == Biome.WATER
-        member.immersion += ((1 if in_water else 0) - member.immersion) * -math.expm1(-max(0, elapsed_seconds) / .65)
-        member.pose_blend = min(1, member.pose_blend + elapsed_seconds / .55)
+        member.immersion += ((1 if in_water else 0) - member.immersion) * -math.expm1(
+            -max(0, elapsed_seconds) / 0.65
+        )
+        member.pose_blend = min(1, member.pose_blend + elapsed_seconds / 0.55)
         member.retry_time = max(0, member.retry_time - elapsed_seconds)
         formation_target = center + member.offset
-        in_position = member.position.distance_to(formation_target) < 12 and member.position.distance_to(center) < SQUAD_RADIUS + 15
+        in_position = (
+            member.position.distance_to(formation_target) < 12
+            and member.position.distance_to(center) < SQUAD_RADIUS + 15
+        )
         resting = not unit.route and in_position
         if resting and member.pose == "stand" and unit.squad_time >= member.next_wander:
             member.next_wander = unit.squad_time + member.random.uniform(6, 12)
             angle = member.random.uniform(0, math.tau)
-            member.wander = pygame.Vector2(math.cos(angle), math.sin(angle)) * member.random.uniform(0, 8)
+            member.wander = pygame.Vector2(
+                math.cos(angle), math.sin(angle)
+            ) * member.random.uniform(0, 8)
         if not resting:
             member.wander *= math.exp(-elapsed_seconds * 3)
             update_pose(member, "stand")
         elif not member.walking and unit.squad_time >= member.next_pose:
             member.next_pose = unit.squad_time + member.random.uniform(7, 14)
-            choices = ("stand", "stand", "kneel", "prone") if unit.idle_time > 22 and not unit.in_water else ("stand", "stand", "kneel")
+            choices = (
+                ("stand", "stand", "kneel", "prone")
+                if unit.idle_time > 22 and not unit.in_water
+                else ("stand", "stand", "kneel")
+            )
             update_pose(member, member.random.choice(choices) if not unit.in_water else "stand")
             if member.pose != "stand":
                 member.wander = member.position - center - member.offset
@@ -136,18 +170,22 @@ def update_squad(unit, elapsed_seconds, terrain, navigation):
             target = nearby if nearby is not None else center
         delta = target - member.position
         distance = delta.length()
-        walking = distance > (.7 if unit.route else 1.8)
+        walking = distance > (0.7 if unit.route else 1.8)
         if walking:
             update_pose(member, "stand")
             regrouping = bool(unit.route) or distance > 20
-            speed = min(65 / 1.3 if regrouping else 4.5 / 1.3, distance * (3 if regrouping else .9))
+            speed = min(
+                65 / 1.3 if regrouping else 4.5 / 1.3, distance * (3 if regrouping else 0.9)
+            )
             if in_water:
-                speed *= .45
-            travelled, direction = advance_member(member, target, center, speed, elapsed_seconds, navigation)
-            member.phase = (member.phase + travelled * .42) % 16
-            if travelled > .002:
+                speed *= 0.45
+            travelled, direction = advance_member(
+                member, target, center, speed, elapsed_seconds, navigation
+            )
+            member.phase = (member.phase + travelled * 0.42) % 16
+            if travelled > 0.002:
                 member.facing = member.facing.lerp(direction, -math.expm1(-elapsed_seconds * 7))
-            walking = travelled > .002
+            walking = travelled > 0.002
         else:
             member.detour.clear()
             member.detour_goal = None
@@ -156,8 +194,13 @@ def update_squad(unit, elapsed_seconds, terrain, navigation):
 
 def update_squad_timed(unit, duration, terrain, navigation, interval):
     if not unit.squad_schedule_started:
-        unit.squad_accumulator = ((unit.position[0] * .137 + unit.position[1] * .173) % 1) * interval
+        unit.squad_accumulator = (
+            (unit.position[0] * 0.137 + unit.position[1] * 0.173) % 1
+        ) * interval
         unit.squad_schedule_started = True
+    elif unit.squad_interval > 0 and interval != unit.squad_interval:
+        unit.squad_accumulator *= interval / unit.squad_interval
+    unit.squad_interval = interval
     unit.squad_accumulator += max(0, duration)
     steps = 0
     while unit.squad_accumulator >= interval and steps < 3:

@@ -2,8 +2,7 @@ from collections import defaultdict
 
 import pygame
 
-from game.aircraft.definitions import DRONES_BY_KEY
-from game.aircraft.models import Drone
+from game.aircraft.drone_types import DRONES_BY_KEY, Drone
 from game.aircraft.motion import advance_drone
 from game.aircraft.production import DroneProduction
 from game.settings import WORLD_HEIGHT, WORLD_WIDTH
@@ -27,7 +26,12 @@ class DroneFleet:
         self.air_routes = None
 
     def valid_airport(self, airport):
-        return airport in self.buildings.buildings and airport.owner == self.owner and airport.completed and airport.definition.key == "airport"
+        return (
+            airport in self.buildings.buildings
+            and airport.owner == self.owner
+            and airport.completed
+            and airport.definition.key == "airport"
+        )
 
     def purchase(self, airport, key):
         if not self.valid_airport(airport) or key not in DRONES_BY_KEY:
@@ -45,8 +49,13 @@ class DroneFleet:
         _, anchor, _ = building_layout("airport")
         apron = pygame.Vector2(building_point("airport", (30, 83))) / 2 - anchor
         position = pygame.Vector2(airport.position) + apron
-        center = (max(180, min(WORLD_WIDTH - 180, airport.position[0])), max(180, min(WORLD_HEIGHT - 180, airport.position[1])))
-        drone = Drone(DRONES_BY_KEY[key], airport, tuple(position), self.next_identity, orbit_center=center)
+        center = (
+            max(180, min(WORLD_WIDTH - 180, airport.position[0])),
+            max(180, min(WORLD_HEIGHT - 180, airport.position[1])),
+        )
+        drone = Drone(
+            DRONES_BY_KEY[key], airport, tuple(position), self.next_identity, orbit_center=center
+        )
         self.next_identity += 1
         self.stock[airport][key] -= 1
         self.drones.append(drone)
@@ -62,17 +71,21 @@ class DroneFleet:
         if not self.drones:
             return
         while remaining > 1e-8:
-            step = min(.1, remaining)
+            step = min(0.1, remaining)
             for drone in tuple(self.drones):
                 previous_position = drone.position
                 handled = self.combat.advance(drone, step) if self.combat is not None else False
                 transitions = [] if handled else advance_drone(drone, step)
-                if self.air_routes is not None and drone.controllable and not self.air_routes.clear(previous_position,drone.position):
+                if (
+                    self.air_routes is not None
+                    and drone.controllable
+                    and not self.air_routes.clear(previous_position, drone.position)
+                ):
                     drone.position = previous_position
                     if drone.route:
-                        offset = pygame.Vector2(drone.route[0])-drone.position
+                        offset = pygame.Vector2(drone.route[0]) - drone.position
                         if offset.length_squared():
-                            drone.heading = pygame.Vector2(0,-1).angle_to(offset)%360
+                            drone.heading = pygame.Vector2(0, -1).angle_to(offset) % 360
                 if transitions:
                     self.revision += 1
                     self.events.extend((drone, state) for state in transitions)
@@ -83,21 +96,40 @@ class DroneFleet:
                 break
 
     def vision_sources(self):
-        return [VisionSource(drone.position, drone.vision_radius, territorial=False, records_exploration=drone.definition.records_exploration)
-                for drone in self.drones if drone.state in ("takeoff", "cruising", "diving", "falling") and drone.altitude > 1]
+        return [
+            VisionSource(
+                drone.position,
+                drone.vision_radius,
+                territorial=False,
+                records_exploration=drone.definition.records_exploration,
+            )
+            for drone in self.drones
+            if drone.state in ("takeoff", "cruising", "diving", "falling") and drone.altitude > 1
+        ]
 
     def assign_route(self, drone, points, append=False):
         if drone not in self.drones or not drone.controllable or not points:
             return False
         drone.attack_target = None
         drone.attack_position = None
-        route = [tuple(pygame.Vector2(max(16, min(WORLD_WIDTH - 16, point[0])), max(16, min(WORLD_HEIGHT - 16, point[1])))) for point in points]
+        route = [
+            tuple(
+                pygame.Vector2(
+                    max(16, min(WORLD_WIDTH - 16, point[0])),
+                    max(16, min(WORLD_HEIGHT - 16, point[1])),
+                )
+            )
+            for point in points
+        ]
         if append:
             drone.route.extend(route)
         else:
             drone.route = route
         destination = drone.route[-1]
-        drone.orbit_center = (max(96, min(WORLD_WIDTH - 96, destination[0])), max(96, min(WORLD_HEIGHT - 96, destination[1])))
+        drone.orbit_center = (
+            max(96, min(WORLD_WIDTH - 96, destination[0])),
+            max(96, min(WORLD_HEIGHT - 96, destination[1])),
+        )
         drone.orbit_radius = 80
         return True
 

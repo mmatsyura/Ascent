@@ -25,20 +25,30 @@ def decorate_terrain(surface, biomes, forest_strength, random):
             if not contains_biome(biomes, world_x, world_y, 7, biome):
                 continue
             woodland = forest_strength[row, column]
-            grass_color = (110, 130, 79) if woodland < .5 else (96, 118, 76)
+            grass_color = (110, 130, 79) if woodland < 0.5 else (96, 118, 76)
             for offset in [-3, 0, 3]:
                 height = int(random.integers(2, 5))
                 lean = (world_x + world_y + offset) % 5 - 2
                 tone = tuple(channel + (offset + 3) * 2 for channel in grass_color)
-                pygame.draw.line(surface, tone, (world_x + offset // 2, world_y + 2), (world_x + offset + lean, world_y - height), 1)
-            if random.random() < .07 * (1 - woodland):
+                pygame.draw.line(
+                    surface,
+                    tone,
+                    (world_x + offset // 2, world_y + 2),
+                    (world_x + offset + lean, world_y - height),
+                    1,
+                )
+            if random.random() < 0.07 * (1 - woodland):
                 pygame.draw.circle(surface, (205, 200, 147), (world_x - 2, world_y - 4), 2)
-            if random.random() < woodland * .4:
-                pygame.draw.line(surface, (122, 116, 76), (world_x - 3, world_y), (world_x + 2, world_y + 2), 2)
+            if random.random() < woodland * 0.4:
+                pygame.draw.line(
+                    surface, (122, 116, 76), (world_x - 3, world_y), (world_x + 2, world_y + 2), 2
+                )
 
-        elif biome == Biome.BEACH and random.random() < .28:
+        elif biome == Biome.BEACH and random.random() < 0.28:
             if contains_biome(biomes, world_x, world_y, 9, Biome.BEACH):
-                pygame.draw.arc(surface, (182, 176, 133), (world_x - 7, world_y - 2, 15, 5), .1, 2.9, 1)
+                pygame.draw.arc(
+                    surface, (182, 176, 133), (world_x - 7, world_y - 2, 15, 5), 0.1, 2.9, 1
+                )
 
 
 def create_water_glints(surface, biomes, random):

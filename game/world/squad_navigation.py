@@ -25,19 +25,24 @@ def plan_member_route(member, target, center, navigation):
                 break
     member.detour = route or []
     member.detour_goal = pygame.Vector2(target)
-    member.retry_time = .55
+    member.retry_time = 0.55
 
 
 def advance_member(member, target, center, speed, elapsed_seconds, navigation):
     member.direct_remaining -= elapsed_seconds
     revision = navigation.terrain.revision
-    if member.direct_remaining > 0 and member.direct_goal is not None and member.direct_goal.distance_squared_to(target) < 64 and member.direct_revision == revision:
+    if (
+        member.direct_remaining > 0
+        and member.direct_goal is not None
+        and member.direct_goal.distance_squared_to(target) < 64
+        and member.direct_revision == revision
+    ):
         direct = member.direct_clear
     else:
         direct = navigation.can_move(member.position, target, radius=4)
         member.direct_goal = pygame.Vector2(target)
         member.direct_clear = direct
-        member.direct_remaining = .18
+        member.direct_remaining = 0.18
         member.direct_revision = revision
     if direct:
         planner = getattr(navigation, "member_paths", None)
@@ -47,7 +52,9 @@ def advance_member(member, target, center, speed, elapsed_seconds, navigation):
         member.detour_goal = None
     else:
         target_changed = member.detour_goal is None or member.detour_goal.distance_to(target) > 12
-        if member.retry_time <= 0 and (not member.detour or target_changed or member.blocked_seconds > .1):
+        if member.retry_time <= 0 and (
+            not member.detour or target_changed or member.blocked_seconds > 0.1
+        ):
             plan_member_route(member, target, center, navigation)
 
     remaining = speed * elapsed_seconds
@@ -64,17 +71,19 @@ def advance_member(member, target, center, speed, elapsed_seconds, navigation):
             break
         direction = delta / distance
         movement = min(remaining, distance)
-        position = waypoint.copy() if movement == distance else member.position + direction * movement
+        position = (
+            waypoint.copy() if movement == distance else member.position + direction * movement
+        )
         if not navigation.can_move(member.position, position, radius=4):
             member.direct_remaining = 0
             member.detour.clear()
             member.detour_goal = None
-            member.retry_time = min(member.retry_time, .1)
+            member.retry_time = min(member.retry_time, 0.1)
             break
         member.position = position
         travelled += movement
         remaining -= movement
         if member.detour and movement == distance:
             member.detour.pop(0)
-    member.blocked_seconds = 0 if travelled > .001 else member.blocked_seconds + elapsed_seconds
+    member.blocked_seconds = 0 if travelled > 0.001 else member.blocked_seconds + elapsed_seconds
     return travelled, direction

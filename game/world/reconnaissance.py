@@ -60,7 +60,9 @@ class Reconnaissance:
         for unit in self.units:
             if unit.owner != "blue" and self.visibility.is_visible(unit.position):
                 self.visible_enemies.add(unit)
-                self.contacts[unit] = Contact(tuple(unit.position), unit.owner, unit.name, unit.is_tank, self.elapsed)
+                self.contacts[unit] = Contact(
+                    tuple(unit.position), unit.owner, unit.name, unit.is_tank, self.elapsed
+                )
                 self.hidden_contacts.discard(unit)
         for unit, contact in tuple(self.contacts.items()):
             if unit in self.visible_enemies:
@@ -75,7 +77,11 @@ class Reconnaissance:
                 self.hidden_contacts.discard(unit)
 
     def displayed_cities(self):
-        live = {city.position: city for city in self.cities.cities if self.visibility.is_visible(city.position)}
+        live = {
+            city.position: city
+            for city in self.cities.cities
+            if self.visibility.is_visible(city.position)
+        }
         result = dict(self.city_memory)
         result.update(live)
         return tuple(result.values())
@@ -86,10 +92,18 @@ class Reconnaissance:
         return self.city_memory.get(position)
 
     def displayed_buildings(self):
-        live = {building: building for building in self.buildings.buildings if building.owner == "blue" or self.visibility.is_visible(building.position)}
+        live = {
+            building: building
+            for building in self.buildings.buildings
+            if building.owner == "blue" or self.visibility.is_visible(building.position)
+        }
         result = dict(self.building_memory)
         result.update(live)
         return tuple(result.values())
 
     def old_contacts(self):
-        return tuple((contact, self.elapsed - contact.observed_at) for unit, contact in self.contacts.items() if unit not in self.visible_enemies)
+        return tuple(
+            (contact, self.elapsed - contact.observed_at)
+            for unit, contact in self.contacts.items()
+            if unit not in self.visible_enemies
+        )

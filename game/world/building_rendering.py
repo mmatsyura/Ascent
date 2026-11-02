@@ -2,14 +2,18 @@ from functools import lru_cache
 
 import pygame
 
-from game.rendering import RenderPart
-from game.sprite_cache import prepared_sprite
-from game.world.faction_art import faction_image, FACTION_COLORS
+from game.rendering import RenderPart, prepared_sprite
 from game.settings import PLAYER_COLOR
-from game.world.capital_flags import flag_image, FLAG_RATE, FLAG_FRAMES
 from game.world.building_animation import ANIMATION_FRAMES, ANIMATION_RATE, building_frame
 from game.world.building_art import building_layout
 from game.world.construction_art import builder_parts, construction_frame
+from game.world.faction_visuals import (
+    FACTION_COLORS,
+    FLAG_FRAMES,
+    FLAG_RATE,
+    faction_image,
+    flag_image,
+)
 
 
 @lru_cache(maxsize=192)
@@ -41,13 +45,29 @@ def building_parts(building, camera, workers=True):
     if building.owner != "blue":
         image = faction_image(image, building.owner)
     center = camera.world_to_screen(building.position)
-    rectangle = image.get_rect(topleft=(round(center.x - anchor[0] * camera.zoom), round(center.y - anchor[1] * camera.zoom)))
+    rectangle = image.get_rect(
+        topleft=(
+            round(center.x - anchor[0] * camera.zoom),
+            round(center.y - anchor[1] * camera.zoom),
+        )
+    )
     parts = [RenderPart(building.position[1], image, rectangle)]
     if workers and (not building.completed or building.builder_departure > 0):
         parts.extend(builder_parts(building, camera))
-    color = PLAYER_COLOR if building.owner=='blue' else FACTION_COLORS.get(building.owner,(160,160,145))
-    frame = int(building.animation_time*FLAG_RATE)%FLAG_FRAMES
-    flag = building_flag(color, frame, (max(8, round(28 * camera.zoom)), max(9, round(32 * camera.zoom))))
-    flag_area = flag.get_rect(bottomleft=(round(center.x+size[0]*camera.zoom*.22),round(center.y-18*camera.zoom)))
-    parts.append(RenderPart(building.position[1]+.1,flag,flag_area))
+    color = (
+        PLAYER_COLOR
+        if building.owner == "blue"
+        else FACTION_COLORS.get(building.owner, (160, 160, 145))
+    )
+    frame = int(building.animation_time * FLAG_RATE) % FLAG_FRAMES
+    flag = building_flag(
+        color, frame, (max(8, round(28 * camera.zoom)), max(9, round(32 * camera.zoom)))
+    )
+    flag_area = flag.get_rect(
+        bottomleft=(
+            round(center.x + size[0] * camera.zoom * 0.22),
+            round(center.y - 18 * camera.zoom),
+        )
+    )
+    parts.append(RenderPart(building.position[1] + 0.1, flag, flag_area))
     return parts

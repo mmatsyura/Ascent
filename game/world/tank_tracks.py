@@ -4,14 +4,16 @@ import math
 import pygame
 
 from game.rendering import RenderPart
-from game.world.units import detail_blend
 from game.world.tank_geometry import TANK_TRACK_OFFSET, track_lateral
+from game.world.units import detail_blend
 
 
 @lru_cache(maxsize=96)
 def tread_stamp(zoom_step, angle_step):
     zoom = zoom_step / 100
-    stamp = pygame.Surface((max(2, round(7 / 1.5 * zoom)), max(2, round(3 / 1.5 * zoom))), pygame.SRCALPHA)
+    stamp = pygame.Surface(
+        (max(2, round(7 / 1.5 * zoom)), max(2, round(3 / 1.5 * zoom))), pygame.SRCALPHA
+    )
     stamp.fill((56, 66, 42, 90))
     pygame.draw.line(stamp, (89, 94, 59, 65), (0, 0), (stamp.get_width() - 1, 0))
     return pygame.transform.rotate(stamp, -angle_step)
@@ -21,7 +23,14 @@ def trail_part(unit, screen, camera):
     if not unit.tracks or detail_blend(camera.zoom) <= 0:
         return None
     age_key = (int(unit.squad_time * 4), len(unit.tracks))
-    key = (camera.position.x, camera.position.y, camera.zoom, camera.viewport_size, unit.track_revision, age_key)
+    key = (
+        camera.position.x,
+        camera.position.y,
+        camera.zoom,
+        camera.viewport_size,
+        unit.track_revision,
+        age_key,
+    )
     if unit.trail_cache_key == key:
         return unit.trail_cache
     visible = camera.visible_area.inflate(40, 40)

@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -11,7 +11,9 @@ class Kingdom:
     on_purchase: Callable | None = field(default=None, repr=False, compare=False)
 
     def can_afford(self, cost):
-        return all(resource == "gold" and 0 <= amount <= self.gold for resource, amount in cost.items())
+        return all(
+            resource == "gold" and 0 <= amount <= self.gold for resource, amount in cost.items()
+        )
 
     def spend(self, cost):
         if not self.can_afford(cost):

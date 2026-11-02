@@ -2,8 +2,8 @@ from dataclasses import dataclass
 
 import pygame
 
-from game.ui.fonts import ui_font
 from game.ui.hud_icons import gold_icon
+from game.ui.theme import ui_font
 
 
 @dataclass
@@ -32,10 +32,14 @@ class GoldFlow:
 
     def draw_labels(self, screen, camera):
         for payment in self.payments:
-            position = camera.world_to_screen(payment.position) - pygame.Vector2(0, 42 * camera.zoom + payment.age * 16)
+            position = camera.world_to_screen(payment.position) - pygame.Vector2(
+                0, 42 * camera.zoom + payment.age * 16
+            )
             if not screen.get_rect().inflate(100, 100).collidepoint(position):
                 continue
-            alpha = round(255 * min(1, payment.age / .12) * max(0, min(1, (1.8 - payment.age) / .55)))
+            alpha = round(
+                255 * min(1, payment.age / 0.12) * max(0, min(1, (1.8 - payment.age) / 0.55))
+            )
             label = self.font.render(f"+{payment.amount}", True, (247, 213, 120))
             shadow = self.font.render(f"+{payment.amount}", True, (24, 29, 21))
             label.set_alpha(alpha)
@@ -46,4 +50,3 @@ class GoldFlow:
             coin = self.coin.copy()
             coin.set_alpha(alpha)
             screen.blit(coin, (area.x - 16, area.centery - 6))
-

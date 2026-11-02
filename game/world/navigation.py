@@ -10,7 +10,7 @@ class Navigation:
         self.terrain = terrain
         self.visibility = visibility
         self.step = 4 if avoid_trees else 8
-        self.center_offset = 0 if avoid_trees else .5
+        self.center_offset = 0 if avoid_trees else 0.5
         self.avoid_trees = avoid_trees
         self.terrain_revision = getattr(terrain, "revision", 0)
         mask = terrain.soldier_walkable if avoid_trees else terrain.walkable
@@ -20,7 +20,9 @@ class Navigation:
             self.walkable = np.zeros_like(mask)
             self.walkable[1:, 1:] = mask[:-1, :-1] & mask[1:, :-1] & mask[:-1, 1:] & mask[1:, 1:]
         else:
-            self.walkable = mask.reshape(mask.shape[0] // 2, 2, mask.shape[1] // 2, 2).all(axis=(1, 3))
+            self.walkable = mask.reshape(mask.shape[0] // 2, 2, mask.shape[1] // 2, 2).all(
+                axis=(1, 3)
+            )
 
     def allowed_cells(self):
         revision = getattr(self.terrain, "revision", 0)
@@ -32,10 +34,17 @@ class Navigation:
         return int(position[0] // self.step), int(position[1] // self.step)
 
     def center(self, cell):
-        return ((cell[0] + self.center_offset) * self.step, (cell[1] + self.center_offset) * self.step)
+        return (
+            (cell[0] + self.center_offset) * self.step,
+            (cell[1] + self.center_offset) * self.step,
+        )
 
     def allowed(self, cell, cells):
-        return 0 <= cell[0] < cells.shape[1] and 0 <= cell[1] < cells.shape[0] and bool(cells[cell[1], cell[0]])
+        return (
+            0 <= cell[0] < cells.shape[1]
+            and 0 <= cell[1] < cells.shape[0]
+            and bool(cells[cell[1], cell[0]])
+        )
 
     def clear_line(self, start, end, cells, check_cells=True):
         if not check_cells:
@@ -55,7 +64,10 @@ class Navigation:
 
     def nearest_destination(self, destination, radius=28):
         destination = pygame.Vector2(destination)
-        if not (0 <= destination.x < self.walkable.shape[1] * self.step and 0 <= destination.y < self.walkable.shape[0] * self.step):
+        if not (
+            0 <= destination.x < self.walkable.shape[1] * self.step
+            and 0 <= destination.y < self.walkable.shape[0] * self.step
+        ):
             return None
         if self.can_place(destination, radius=4):
             return destination
@@ -69,9 +81,23 @@ class Navigation:
 
     def connector(self, point, cells):
         cell = self.cell(point)
-        candidates = [(cell[0] + horizontal, cell[1] + vertical) for vertical in range(-2, 3) for horizontal in range(-2, 3)]
-        candidates.sort(key=lambda candidate: pygame.Vector2(self.center(candidate)).distance_squared_to(point))
-        return next((candidate for candidate in candidates if self.allowed(candidate, cells) and self.clear_line(point, self.center(candidate), cells, check_cells=False)), None)
+        candidates = [
+            (cell[0] + horizontal, cell[1] + vertical)
+            for vertical in range(-2, 3)
+            for horizontal in range(-2, 3)
+        ]
+        candidates.sort(
+            key=lambda candidate: pygame.Vector2(self.center(candidate)).distance_squared_to(point)
+        )
+        return next(
+            (
+                candidate
+                for candidate in candidates
+                if self.allowed(candidate, cells)
+                and self.clear_line(point, self.center(candidate), cells, check_cells=False)
+            ),
+            None,
+        )
 
     def find_path(self, start, destination, cells):
         iterator = self.iter_path(start, destination, cells)
@@ -104,11 +130,27 @@ class Navigation:
             visits += 1
             if visits % 96 == 0:
                 yield None
-            for horizontal, vertical in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            for horizontal, vertical in (
+                (1, 0),
+                (-1, 0),
+                (0, 1),
+                (0, -1),
+                (1, 1),
+                (1, -1),
+                (-1, 1),
+                (-1, -1),
+            ):
                 neighbor = (current[0] + horizontal, current[1] + vertical)
                 if not self.allowed(neighbor, cells):
                     continue
-                if horizontal and vertical and not (self.allowed((current[0] + horizontal, current[1]), cells) and self.allowed((current[0], current[1] + vertical), cells)):
+                if (
+                    horizontal
+                    and vertical
+                    and not (
+                        self.allowed((current[0] + horizontal, current[1]), cells)
+                        and self.allowed((current[0], current[1] + vertical), cells)
+                    )
+                ):
                     continue
                 next_cost = cost + (14 if horizontal and vertical else 10)
                 if next_cost >= costs.get(neighbor, math.inf):
@@ -124,12 +166,16 @@ class Navigation:
         chain = [last]
         while chain[-1] != first:
             chain.append(previous[chain[-1]])
-        raw = [tuple(start)] + [self.center(cell) for cell in reversed(chain)] + [tuple(destination)]
+        raw = (
+            [tuple(start)] + [self.center(cell) for cell in reversed(chain)] + [tuple(destination)]
+        )
         route = []
         index = 0
         while index < len(raw) - 1:
             following = min(len(raw) - 1, index + 24)
-            while following > index + 1 and not self.clear_line(raw[index], raw[following], cells, check_cells=False):
+            while following > index + 1 and not self.clear_line(
+                raw[index], raw[following], cells, check_cells=False
+            ):
                 following -= 1
             if not self.clear_line(raw[index], raw[following], cells, check_cells=False):
                 return None

@@ -2,10 +2,10 @@ from dataclasses import dataclass
 
 import pygame
 
-from game.world.visibility import VisionSource
-from game.world.buildings import BuildingDefinition
-from game.world.building_rendering import building_parts
 from game.world.building_art import building_layout
+from game.world.building_rendering import building_parts
+from game.world.buildings import BuildingDefinition
+from game.world.visibility import VisionSource
 
 
 def building_area(definition, position):
@@ -27,15 +27,26 @@ class PlacedBuilding:
 
     @property
     def completed(self):
-        return self.construction_elapsed is None or self.construction_elapsed >= self.definition.construction_duration
+        return (
+            self.construction_elapsed is None
+            or self.construction_elapsed >= self.definition.construction_duration
+        )
 
     @property
     def construction_progress(self):
-        return 1.0 if self.completed else self.construction_elapsed / self.definition.construction_duration
+        return (
+            1.0
+            if self.completed
+            else self.construction_elapsed / self.definition.construction_duration
+        )
 
     @property
     def construction_remaining(self):
-        return 0.0 if self.completed else self.definition.construction_duration - self.construction_elapsed
+        return (
+            0.0
+            if self.completed
+            else self.definition.construction_duration - self.construction_elapsed
+        )
 
     @property
     def area(self):
@@ -56,16 +67,34 @@ class BuildingManager:
 
     @property
     def income_per_second(self):
-        return sum(building.definition.income_per_second for building in self.buildings if building.owner == "blue" and building.completed)
+        return sum(
+            building.definition.income_per_second
+            for building in self.buildings
+            if building.owner == "blue" and building.completed
+        )
 
     def vision_sources(self):
-        return [VisionSource(building.position, building.definition.vision_radius) for building in self.buildings if building.owner == "blue" and building.completed]
+        return [
+            VisionSource(building.position, building.definition.vision_radius)
+            for building in self.buildings
+            if building.owner == "blue" and building.completed
+        ]
 
     def income_schedule(self, duration):
-        mines = [building for building in self.buildings if building.owner == "blue" and building.definition.income_per_second > 0]
+        mines = [
+            building
+            for building in self.buildings
+            if building.owner == "blue" and building.definition.income_per_second > 0
+        ]
         active = [building for building in mines if building.completed]
-        completions = sorted(((building.construction_remaining, index, building) for index, building in enumerate(mines)
-                              if not building.completed and building.construction_remaining <= duration), key=lambda item: item[:2])
+        completions = sorted(
+            (
+                (building.construction_remaining, index, building)
+                for index, building in enumerate(mines)
+                if not building.completed and building.construction_remaining <= duration
+            ),
+            key=lambda item: item[:2],
+        )
         schedule = []
         previous = 0
         for time, _, building in completions:
@@ -85,12 +114,16 @@ class BuildingManager:
     def interactive_at(self, pointer, screen, camera):
         world = camera.screen_to_world(pointer)
         for building in reversed(self.buildings):
-            if building.owner != "blue" or (building.completed and building.definition.key not in ("airport", "barracks")):
+            if building.owner != "blue" or (
+                building.completed and building.definition.key not in ("airport", "barracks")
+            ):
                 continue
             size, anchor, _ = building_layout(building.definition.key)
             left = building.position[0] - anchor[0]
             top = building.position[1] - anchor[1]
-            if not (left - 2 <= world.x < left + size[0] + 2 and top - 2 <= world.y < top + size[1] + 2):
+            if not (
+                left - 2 <= world.x < left + size[0] + 2 and top - 2 <= world.y < top + size[1] + 2
+            ):
                 continue
             for part in building_parts(building, camera, workers=False):
                 if part.rectangle.collidepoint(pointer):
@@ -103,7 +136,13 @@ class BuildingManager:
         if not self.kingdom.can_afford(definition.cost):
             return "Недостатньо золота."
         area = building_area(definition, position)
-        samples = (area.topleft, (area.right - 1, area.top), (area.right - 1, area.bottom - 1), (area.left, area.bottom - 1), area.center)
+        samples = (
+            area.topleft,
+            (area.right - 1, area.top),
+            (area.right - 1, area.bottom - 1),
+            (area.left, area.bottom - 1),
+            area.center,
+        )
         if not all(visibility.is_visible(point) for point in samples):
             return "Оберіть місце у видимій частині території."
         if any(area.inflate(16, 16).colliderect(building.area) for building in self.buildings):
@@ -111,13 +150,18 @@ class BuildingManager:
         if not self.terrain.can_place_building(area):
             return "Потрібна рівна ділянка суші без дерев."
         for city in self.cities.cities:
-            closest = (max(area.left, min(area.right, city.position[0])), max(area.top, min(area.bottom, city.position[1])))
+            closest = (
+                max(area.left, min(area.right, city.position[0])),
+                max(area.top, min(area.bottom, city.position[1])),
+            )
             radius = 42 if city.capital else 24
             if pygame.Vector2(closest).distance_squared_to(city.position) < radius * radius:
                 return "Залиште місце навколо міста."
         safety_area = area.inflate(16, 16)
         for unit in self.units:
-            if safety_area.collidepoint(unit.position) or any(safety_area.collidepoint(member.position) for member in unit.members):
+            if safety_area.collidepoint(unit.position) or any(
+                safety_area.collidepoint(member.position) for member in unit.members
+            ):
                 return "Спочатку відведіть бійців із ділянки."
         return ""
 
@@ -127,7 +171,9 @@ class BuildingManager:
             return None, error
         if not self.kingdom.spend(definition.cost):
             return None, "Недостатньо золота."
-        building = PlacedBuilding(definition, tuple(position), len(self.buildings) * .73, construction_elapsed=0)
+        building = PlacedBuilding(
+            definition, tuple(position), len(self.buildings) * 0.73, construction_elapsed=0
+        )
         self.reservations[building] = self.terrain.reserve_building(building.area)
         self.buildings.append(building)
         self.revision += 1
@@ -159,12 +205,17 @@ class BuildingManager:
         return True
 
     def update(self, elapsed_seconds, construction_seconds=None):
-        construction_seconds = elapsed_seconds if construction_seconds is None else construction_seconds
+        construction_seconds = (
+            elapsed_seconds if construction_seconds is None else construction_seconds
+        )
         for building in self.buildings:
             building.animation_time += elapsed_seconds
             building.builder_departure = max(0, building.builder_departure - elapsed_seconds)
             if not building.completed:
-                building.construction_elapsed = min(building.definition.construction_duration, building.construction_elapsed + max(0, construction_seconds))
+                building.construction_elapsed = min(
+                    building.definition.construction_duration,
+                    building.construction_elapsed + max(0, construction_seconds),
+                )
                 if building.completed:
                     building.builder_departure = 1.8
                     self.revision += 1
@@ -174,7 +225,11 @@ class BuildingManager:
                 building.training_time += elapsed_seconds
 
     def set_training(self, building, active):
-        if building not in self.buildings or not building.completed or building.definition.key != "barracks":
+        if (
+            building not in self.buildings
+            or not building.completed
+            or building.definition.key != "barracks"
+        ):
             return False
         building.training_active = bool(active)
         building.training_time = 0

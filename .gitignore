@@ -5,3 +5,5 @@ venv/
 .env
 .env.*
 !.env.example
+/exports/
+/game/assets/audio/123.mp3

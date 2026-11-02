@@ -2,7 +2,12 @@ import math
 
 import pygame
 
-from game.aircraft.definitions import BURN_DURATION, FALL_DURATION, FLIGHT_ALTITUDE, TAKEOFF_DURATION
+from game.aircraft.drone_types import (
+    BURN_DURATION,
+    FALL_DURATION,
+    FLIGHT_ALTITUDE,
+    TAKEOFF_DURATION,
+)
 from game.settings import WORLD_HEIGHT, WORLD_WIDTH
 
 
@@ -21,9 +26,9 @@ def fly_towards(drone, target, duration):
     target_heading = math.degrees(math.atan2(offset.x, -offset.y)) % 360
     drone.heading = turn_towards(drone.heading, target_heading, duration)
     difference = abs((target_heading - drone.heading + 180) % 360 - 180)
-    speed = drone.definition.speed * max(.3, math.cos(math.radians(min(90, difference))))
+    speed = drone.definition.speed * max(0.3, math.cos(math.radians(min(90, difference))))
     movement = min(distance, speed * duration)
-    if distance <= movement + .001 and difference < 10:
+    if distance <= movement + 0.001 and difference < 10:
         position.update(target)
         arrived = True
     else:
@@ -74,7 +79,9 @@ def advance_drone(drone, duration):
         if drone.state == "takeoff":
             progress = min(1, drone.state_time / TAKEOFF_DURATION)
             drone.altitude = FLIGHT_ALTITUDE * progress * progress * (3 - 2 * progress)
-            direction = pygame.Vector2(0, -drone.definition.speed * .3 * step).rotate(drone.heading)
+            direction = pygame.Vector2(0, -drone.definition.speed * 0.3 * step).rotate(
+                drone.heading
+            )
             drone.position = tuple(pygame.Vector2(drone.position) + direction)
             if drone.state_time >= TAKEOFF_DURATION - 1e-8:
                 drone.state, drone.state_time = "cruising", 0
@@ -86,14 +93,20 @@ def advance_drone(drone, duration):
                 transitions.append("falling")
         elif drone.state == "falling":
             progress = min(1, drone.state_time / FALL_DURATION)
-            drone.altitude = FLIGHT_ALTITUDE * (1 - progress ** 1.5)
+            drone.altitude = FLIGHT_ALTITUDE * (1 - progress**1.5)
             drone.heading = (drone.heading + step * 25) % 360
-            drone.position = tuple(pygame.Vector2(drone.position) + pygame.Vector2(0, -drone.definition.speed * .35 * step).rotate(drone.heading))
+            drone.position = tuple(
+                pygame.Vector2(drone.position)
+                + pygame.Vector2(0, -drone.definition.speed * 0.35 * step).rotate(drone.heading)
+            )
             if drone.state_time >= FALL_DURATION - 1e-8:
                 drone.state, drone.state_time, drone.altitude = "burning", 0, 0
                 transitions.append("burning")
         elif drone.state_time >= BURN_DURATION - 1e-8:
             drone.state, drone.state_time = "finished", 0
             transitions.append("finished")
-    drone.position = (max(8, min(WORLD_WIDTH - 8, drone.position[0])), max(8, min(WORLD_HEIGHT - 8, drone.position[1])))
+    drone.position = (
+        max(8, min(WORLD_WIDTH - 8, drone.position[0])),
+        max(8, min(WORLD_HEIGHT - 8, drone.position[1])),
+    )
     return transitions

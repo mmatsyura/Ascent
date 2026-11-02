@@ -3,16 +3,21 @@ import math
 
 import pygame
 
-from game.ui.hud_icons import IconCanvas
 from game.aircraft.flamingo_art import draw_flamingo
+from game.ui.hud_icons import IconCanvas
 
 
 def rotor(canvas, center, radius, phase):
     horizontal, vertical = center
-    canvas.ellipse((153, 181, 169, 30), (horizontal - radius, vertical - radius, radius * 2, radius * 2))
+    canvas.ellipse(
+        (153, 181, 169, 30), (horizontal - radius, vertical - radius, radius * 2, radius * 2)
+    )
     angle = phase / 8 * math.tau
     for side in (-1, 1):
-        tip = (horizontal + math.cos(angle) * radius * side, vertical + math.sin(angle) * radius * side)
+        tip = (
+            horizontal + math.cos(angle) * radius * side,
+            vertical + math.sin(angle) * radius * side,
+        )
         canvas.line((129, 151, 140, 150), center, tip, 2)
     canvas.ellipse((37, 59, 55), (horizontal - 2, vertical - 2, 4, 4))
 
@@ -24,8 +29,14 @@ def drone_source(key, phase=0):
         draw_flamingo(canvas, phase)
     elif key == "kamikaze":
         rotor(canvas, (64, 101), 13, phase)
-        canvas.polygon((48, 65, 53), [(64, 17), (111, 94), (95, 99), (70, 83), (64, 110), (58, 83), (32, 99), (17, 94)])
-        canvas.polygon((139, 151, 105), [(64, 14), (108, 91), (95, 94), (69, 79), (64, 104), (59, 79), (33, 94), (20, 91)])
+        canvas.polygon(
+            (48, 65, 53),
+            [(64, 17), (111, 94), (95, 99), (70, 83), (64, 110), (58, 83), (32, 99), (17, 94)],
+        )
+        canvas.polygon(
+            (139, 151, 105),
+            [(64, 14), (108, 91), (95, 94), (69, 79), (64, 104), (59, 79), (33, 94), (20, 91)],
+        )
         canvas.polygon((176, 179, 124), [(64, 14), (69, 79), (64, 104), (59, 79)])
         canvas.polygon((105, 128, 88), [(48, 55), (59, 45), (58, 76), (33, 91)])
         canvas.polygon((100, 121, 84), [(74, 44), (88, 65), (94, 91), (70, 78)])
@@ -38,10 +49,43 @@ def drone_source(key, phase=0):
         for horizontal in (43, 82):
             canvas.line((62, 85, 83), (horizontal, 52), (horizontal, 106), 4)
             canvas.line((166, 184, 171), (horizontal - 1, 54), (horizontal - 1, 104), 1)
-        canvas.polygon((100, 129, 133), [(19, 55), (59, 43), (63, 18), (68, 43), (110, 55), (108, 66), (69, 62), (67, 92), (61, 92), (57, 62), (20, 66)])
-        canvas.polygon((191, 203, 178), [(20, 53), (59, 42), (63, 14), (67, 42), (109, 53), (108, 61), (68, 57), (67, 87), (60, 87), (58, 57), (20, 61)])
+        canvas.polygon(
+            (100, 129, 133),
+            [
+                (19, 55),
+                (59, 43),
+                (63, 18),
+                (68, 43),
+                (110, 55),
+                (108, 66),
+                (69, 62),
+                (67, 92),
+                (61, 92),
+                (57, 62),
+                (20, 66),
+            ],
+        )
+        canvas.polygon(
+            (191, 203, 178),
+            [
+                (20, 53),
+                (59, 42),
+                (63, 14),
+                (67, 42),
+                (109, 53),
+                (108, 61),
+                (68, 57),
+                (67, 87),
+                (60, 87),
+                (58, 57),
+                (20, 61),
+            ],
+        )
         for horizontal in (26, 83):
-            canvas.polygon((46, 82, 97), [(horizontal, 53), (horizontal + 19, 48), (horizontal + 20, 58), (horizontal, 60)])
+            canvas.polygon(
+                (46, 82, 97),
+                [(horizontal, 53), (horizontal + 19, 48), (horizontal + 20, 58), (horizontal, 60)],
+            )
             for offset in (5, 11, 17):
                 canvas.line((97, 137, 147), (horizontal + offset, 52), (horizontal + offset, 58), 1)
         canvas.polygon((154, 177, 165), [(34, 100), (92, 100), (94, 106), (34, 108)])
@@ -57,7 +101,9 @@ def drone_source(key, phase=0):
             canvas.line((122, 145, 128), (64, 62), (horizontal, vertical - 2), 3)
             rotor(canvas, (horizontal, vertical), 22, phase)
         canvas.polygon((37, 59, 57), [(49, 40), (78, 40), (86, 64), (76, 90), (51, 90), (43, 64)])
-        canvas.polygon((133, 155, 125), [(50, 38), (77, 38), (84, 61), (75, 84), (53, 84), (45, 61)])
+        canvas.polygon(
+            (133, 155, 125), [(50, 38), (77, 38), (84, 61), (75, 84), (53, 84), (45, 61)]
+        )
         canvas.polygon((174, 185, 144), [(50, 38), (64, 35), (64, 80), (53, 82), (45, 61)])
         canvas.polygon((59, 86, 78), [(57, 46), (71, 46), (74, 62), (55, 62)])
         canvas.line((54, 111, 151), (51, 65), (51, 75), 3)
@@ -83,9 +129,11 @@ def flight_source(key, phase=0, wreck=False):
 @lru_cache(maxsize=256)
 def drone_frame(key, heading, phase=0, wreck=False):
     radians = math.radians(heading)
-    view_angle = math.degrees(math.atan2(math.sin(radians) * .7, math.cos(radians)))
+    view_angle = math.degrees(math.atan2(math.sin(radians) * 0.7, math.cos(radians)))
     source = pygame.transform.rotate(flight_source(key, phase, wreck), -view_angle)
-    source = pygame.transform.smoothscale(source, (source.get_width(), max(1, round(source.get_height() * .7))))
+    source = pygame.transform.smoothscale(
+        source, (source.get_width(), max(1, round(source.get_height() * 0.7)))
+    )
     image = pygame.Surface((192, 192), pygame.SRCALPHA)
     if wreck:
         source = source.copy()

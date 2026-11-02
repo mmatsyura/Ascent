@@ -11,12 +11,17 @@ def selection_frame(width, height, circular):
     image = pygame.Surface((width, height), pygame.SRCALPHA)
     area = image.get_rect().inflate(-4, -4)
     if circular:
-        for start in (.15, math.pi * .65, math.pi * 1.15, math.pi * 1.65):
-            pygame.draw.arc(image, (8, 20, 25, 195), area.inflate(2, 2), start, start + .8, 3)
-            pygame.draw.arc(image, (189, 219, 215, 225), area, start, start + .8, 1)
+        for start in (0.15, math.pi * 0.65, math.pi * 1.15, math.pi * 1.65):
+            pygame.draw.arc(image, (8, 20, 25, 195), area.inflate(2, 2), start, start + 0.8, 3)
+            pygame.draw.arc(image, (189, 219, 215, 225), area, start, start + 0.8, 1)
     else:
         length = min(15, max(5, width // 5))
-        for x, y, dx, dy in ((area.left, area.top, 1, 1), (area.right - 1, area.top, -1, 1), (area.left, area.bottom - 1, 1, -1), (area.right - 1, area.bottom - 1, -1, -1)):
+        for x, y, dx, dy in (
+            (area.left, area.top, 1, 1),
+            (area.right - 1, area.top, -1, 1),
+            (area.left, area.bottom - 1, 1, -1),
+            (area.right - 1, area.bottom - 1, -1, -1),
+        ):
             points = [(x, y + dy * length), (x, y), (x + dx * length, y)]
             pygame.draw.lines(image, (9, 24, 29, 170), False, points, 3)
             pygame.draw.aalines(image, (183, 217, 212, 210), False, points)
@@ -25,7 +30,7 @@ def selection_frame(width, height, circular):
 
 def draw_selection(screen, camera, units):
     visible = camera.visible_area.inflate(220, 220)
-    detailed = detail_blend(camera.zoom) >= .5
+    detailed = detail_blend(camera.zoom) >= 0.5
     blits = []
     for unit in units:
         if not visible.collidepoint(unit.position):
@@ -36,11 +41,18 @@ def draw_selection(screen, camera, units):
             size = round((85 if unit.is_tank else 135) * camera.zoom)
             if len(units) > 8:
                 size = min(size, 64)
-            area = pygame.Rect(0, 0, size, round(size * .65))
+            area = pygame.Rect(0, 0, size, round(size * 0.65))
             point = camera.world_to_screen(unit.position)
             area.center = round(point.x), round(point.y)
         if detailed:
-            for index, position in enumerate((area.topleft, (area.right - 18, area.top), (area.left, area.bottom - 18), (area.right - 18, area.bottom - 18))):
+            for index, position in enumerate(
+                (
+                    area.topleft,
+                    (area.right - 18, area.top),
+                    (area.left, area.bottom - 18),
+                    (area.right - 18, area.bottom - 18),
+                )
+            ):
                 blits.append((selection_corner(index), position))
         else:
             image = selection_frame(area.w, area.h, True)

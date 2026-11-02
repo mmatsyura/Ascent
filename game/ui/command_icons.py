@@ -25,7 +25,7 @@ def recruit_icon():
     pygame.draw.rect(surface, (44, 59, 42), (47, 77, 35, 35), border_radius=5)
     pygame.draw.circle(surface, (187, 158, 114), (61, 57), 18)
     helmet(surface, (61, 46))
-    rifle(surface, (69, 92), -23, .85)
+    rifle(surface, (69, 92), -23, 0.85)
     pygame.draw.line(surface, (65, 146, 216), (32, 81), (27, 94), 5)
     return pygame.transform.smoothscale(surface, (40, 40))
 

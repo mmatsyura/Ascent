@@ -3,14 +3,21 @@ from functools import lru_cache
 import pygame
 
 from game.ui.command_icons import create_command_icons
-from game.ui.building_icons import create_building_icons
 from game.ui.command_pages import CommandPages
-from game.ui.fonts import fit_text, ui_font
-from game.ui.theme import ACCENT, BORDER, MUTED, TEXT, panel_surface, draw_button
-from game.world.tank_art import tank_badge
-from game.ui.transitions import SmoothLayer
+from game.ui.theme import (
+    ACCENT,
+    BORDER,
+    MUTED,
+    SmoothLayer,
+    TEXT,
+    draw_button,
+    fit_text,
+    panel_surface,
+    ui_font,
+)
+from game.world.building_art import create_building_icons
 from game.world.patriot_art import patriot_badge
-
+from game.world.tank_art import tank_badge
 
 SECTIONS = (("build", "Будівництво"), ("army", "Армія"), ("information", "Інформація"))
 
@@ -38,17 +45,21 @@ class CommandPanel:
         self.construction_site = None
         self.cancel_construction = None
         self.on_action = None
-        self.dock_motion = SmoothLayer(.14)
-        self.inspector_motion = SmoothLayer(.2)
-        self.tooltip_motion = SmoothLayer(.14)
+        self.dock_motion = SmoothLayer(0.14)
+        self.inspector_motion = SmoothLayer(0.2)
+        self.tooltip_motion = SmoothLayer(0.14)
         self.tooltip_key = None
         self.tooltip_image = None
         self.icons = create_command_icons()
         self.icons["tank"] = tank_badge(40)
         self.icons["patriot"] = patriot_badge(40)
         self.building_icons = create_building_icons()
-        self.icons["airport"] = pygame.transform.smoothscale(self.building_icons["airport"], (40, 40))
-        self.icons["barracks"] = pygame.transform.smoothscale(self.building_icons["barracks"], (40, 40))
+        self.icons["airport"] = pygame.transform.smoothscale(
+            self.building_icons["airport"], (40, 40)
+        )
+        self.icons["barracks"] = pygame.transform.smoothscale(
+            self.building_icons["barracks"], (40, 40)
+        )
         self.icons["site"] = self.icons["build"]
         self.fonts = {
             "small": ui_font(14),
@@ -74,7 +85,10 @@ class CommandPanel:
 
     @property
     def owned_cities(self):
-        return sorted((city for city in self.city_map.cities if city.owner == "blue"), key=lambda city: not city.capital)
+        return sorted(
+            (city for city in self.city_map.cities if city.owner == "blue"),
+            key=lambda city: not city.capital,
+        )
 
     @property
     def top(self):
@@ -90,13 +104,27 @@ class CommandPanel:
         self.render_surfaces()
 
     def layout_inspector(self):
-        preferred_height = 470 if self.active_section == "barracks" else (440 if self.active_section in ("build", "airport", "information") else (400 if self.active_section == "army" else 340))
+        preferred_height = (
+            470
+            if self.active_section == "barracks"
+            else (
+                440
+                if self.active_section in ("build", "airport", "information")
+                else (400 if self.active_section == "army" else 340)
+            )
+        )
         height = min(preferred_height, max(250, self.panel_area.top - 110))
-        self.inspector_area = pygame.Rect(self.panel_area.left, self.panel_area.top - height - 8, self.panel_area.w, height)
+        self.inspector_area = pygame.Rect(
+            self.panel_area.left, self.panel_area.top - height - 8, self.panel_area.w, height
+        )
 
     def contains(self, position):
-        return (self.panel_area.collidepoint(position) or bool(self.active_section and self.inspector_area.collidepoint(position))
-                or self.dock_motion.contains(position) or self.inspector_motion.contains(position))
+        return (
+            self.panel_area.collidepoint(position)
+            or bool(self.active_section and self.inspector_area.collidepoint(position))
+            or self.dock_motion.contains(position)
+            or self.inspector_motion.contains(position)
+        )
 
     def label(self, surface, text, position, style="body", color=TEXT, width=None):
         if width is not None:
@@ -125,7 +153,9 @@ class CommandPanel:
         return vertical + line_height
 
     def register(self, action, rectangle):
-        self.action_areas[action] = pygame.Rect(rectangle).move(round(self.origin.x), round(self.origin.y))
+        self.action_areas[action] = pygame.Rect(rectangle).move(
+            round(self.origin.x), round(self.origin.y)
+        )
 
     def button(self, surface, rectangle, text, action=None, active=False, enabled=True, icon=None):
         rectangle = pygame.Rect(rectangle)
@@ -134,9 +164,17 @@ class CommandPanel:
         pressed = action is not None and action == self.pressed_action
         draw_button(surface, rectangle, hovered or active, pressed)
         if active:
-            pygame.draw.rect(surface, ACCENT, (rectangle.x + 2, rectangle.y + 5, 2, max(1, rectangle.h - 10)), border_radius=1)
+            pygame.draw.rect(
+                surface,
+                ACCENT,
+                (rectangle.x + 2, rectangle.y + 5, 2, max(1, rectangle.h - 10)),
+                border_radius=1,
+            )
         if icon:
-            surface.blit(pygame.transform.smoothscale(self.icons[icon], (24, 24)), (rectangle.x + 9, rectangle.centery - 12))
+            surface.blit(
+                pygame.transform.smoothscale(self.icons[icon], (24, 24)),
+                (rectangle.x + 9, rectangle.centery - 12),
+            )
         text = fit_text(self.fonts["button"], text, rectangle.w - (48 if icon else 12))
         label = text_image(self.fonts["button"], text, TEXT if enabled else (151, 162, 146))
         target = label.get_rect(center=rectangle.center)
@@ -149,12 +187,23 @@ class CommandPanel:
     def rule(self, surface, left, right, vertical):
         pygame.draw.line(surface, (87, 82, 58), (left, vertical), (right, vertical))
         middle = (left + right) // 2
-        pygame.draw.polygon(surface, (165, 144, 92), [(middle - 3, vertical), (middle, vertical - 2), (middle + 3, vertical), (middle, vertical + 2)])
+        pygame.draw.polygon(
+            surface,
+            (165, 144, 92),
+            [
+                (middle - 3, vertical),
+                (middle, vertical - 2),
+                (middle + 3, vertical),
+                (middle, vertical + 2),
+            ],
+        )
 
     def crest(self, surface):
         points = [(22, 17), (39, 13), (56, 17), (54, 40), (39, 53), (24, 40)]
         pygame.draw.polygon(surface, (178, 154, 97), points)
-        pygame.draw.polygon(surface, (31, 73, 119), [(25, 20), (39, 17), (53, 20), (51, 38), (39, 48), (27, 38)])
+        pygame.draw.polygon(
+            surface, (31, 73, 119), [(25, 20), (39, 17), (53, 20), (51, 38), (39, 48), (27, 38)]
+        )
         pygame.draw.polygon(surface, (62, 117, 173), [(26, 20), (39, 17), (39, 47), (28, 37)])
         pygame.draw.line(surface, (225, 209, 155), (31, 32), (47, 32), 2)
         pygame.draw.line(surface, (225, 209, 155), (39, 24), (39, 40), 2)
@@ -170,21 +219,41 @@ class CommandPanel:
             top = bottom
         for vertical in range(height):
             progress = vertical / max(1, height - 1)
-            color = tuple(round(first + (last - first) * progress) for first, last in zip(top, bottom))
+            color = tuple(
+                round(first + (last - first) * progress) for first, last in zip(top, bottom)
+            )
             pygame.draw.line(image, color, (0, vertical), (width - 1, vertical))
-        pygame.draw.rect(image, ACCENT if hovered or active else (107, 99, 69), image.get_rect(), 1, border_radius=3)
+        pygame.draw.rect(
+            image,
+            ACCENT if hovered or active else (107, 99, 69),
+            image.get_rect(),
+            1,
+            border_radius=3,
+        )
         pygame.draw.rect(image, (63, 70, 54), (3, 3, width - 6, height - 6), 1, border_radius=2)
-        pygame.draw.line(image, (151, 139, 98) if hovered or active else (91, 94, 70), (5, 2), (width - 6, 2))
+        pygame.draw.line(
+            image, (151, 139, 98) if hovered or active else (91, 94, 70), (5, 2), (width - 6, 2)
+        )
         pygame.draw.ellipse(image, (8, 17, 20), (width // 2 - 25, 9, 50, 42))
         pygame.draw.ellipse(image, (16, 26, 27), (width // 2 - 23, 7, 46, 42))
-        pygame.draw.arc(image, (128, 115, 75), (width // 2 - 23, 7, 46, 42), .2, 2.9, 1)
+        pygame.draw.arc(image, (128, 115, 75), (width // 2 - 23, 7, 46, 42), 0.2, 2.9, 1)
         image.blit(self.icons[section], (width // 2 - 20, 7))
-        label = text_image(self.fonts["button"], title, ACCENT if active else (TEXT if hovered else MUTED))
+        label = text_image(
+            self.fonts["button"], title, ACCENT if active else (TEXT if hovered else MUTED)
+        )
         image.blit(label, label.get_rect(midbottom=(width // 2, height - 7)))
         self.label(image, shortcut, (width - 19, 4), "small", (172, 159, 112))
         if active:
             pygame.draw.line(image, (216, 187, 122), (7, height - 3), (width - 8, height - 3), 2)
-            pygame.draw.polygon(image, ACCENT, [(width // 2 - 3, height - 4), (width // 2, height - 7), (width // 2 + 3, height - 4)])
+            pygame.draw.polygon(
+                image,
+                ACCENT,
+                [
+                    (width // 2 - 3, height - 4),
+                    (width // 2, height - 7),
+                    (width // 2 + 3, height - 4),
+                ],
+            )
         return image
 
     def render_dock(self):
@@ -194,10 +263,18 @@ class CommandPanel:
         self.crest(surface)
         selected_units = self.unit_control.selected
         drone = self.drone_control.selected if self.drone_control is not None else None
-        title = selected_units[0].name if len(selected_units) == 1 else (f"Обрані загони: {len(selected_units)}" if selected_units else "СИНЄ КОРОЛІВСТВО")
+        title = (
+            selected_units[0].name
+            if len(selected_units) == 1
+            else (f"Обрані загони: {len(selected_units)}" if selected_units else "СИНЄ КОРОЛІВСТВО")
+        )
         if drone is not None:
             title = drone.definition.name
-        controls = ("rename", "pause", "capital", "collapse") if len(selected_units) == 1 else ("pause", "capital", "collapse")
+        controls = (
+            ("rename", "pause", "capital", "collapse")
+            if len(selected_units) == 1
+            else ("pause", "capital", "collapse")
+        )
         control_start = width - 23 - len(controls) * 31
         self.label(surface, title, (68, 15), "title", ACCENT, width=control_start - 78)
         if self.paused:
@@ -217,30 +294,65 @@ class CommandPanel:
                 parts.append(f"Петріот: {patriots}")
             subtitle = " · ".join(parts)
         else:
-            subtitle = f"Міста: {len(self.owned_cities)} · Загони: {len(self.unit_control.owned_units)}"
+            subtitle = (
+                f"Міста: {len(self.owned_cities)} · Загони: {len(self.unit_control.owned_units)}"
+            )
         self.label(surface, subtitle, (69, 39), "small", (159, 190, 204) if self.paused else MUTED)
         for index, action in enumerate(controls):
             rectangle = pygame.Rect(control_start + index * 31, 20, 27, 28)
             self.button(surface, rectangle, "", (action,), active=action == "pause" and self.paused)
             horizontal, vertical = rectangle.center
             if action == "rename":
-                pygame.draw.line(surface, ACCENT, (horizontal - 5, vertical + 5), (horizontal + 5, vertical - 5), 3)
-                pygame.draw.line(surface, (80, 147, 187), (horizontal + 3, vertical - 7), (horizontal + 7, vertical - 3), 3)
-                pygame.draw.line(surface, ACCENT, (horizontal - 7, vertical + 7), (horizontal - 3, vertical + 6))
+                pygame.draw.line(
+                    surface,
+                    ACCENT,
+                    (horizontal - 5, vertical + 5),
+                    (horizontal + 5, vertical - 5),
+                    3,
+                )
+                pygame.draw.line(
+                    surface,
+                    (80, 147, 187),
+                    (horizontal + 3, vertical - 7),
+                    (horizontal + 7, vertical - 3),
+                    3,
+                )
+                pygame.draw.line(
+                    surface, ACCENT, (horizontal - 7, vertical + 7), (horizontal - 3, vertical + 6)
+                )
             elif action == "pause":
                 if self.paused:
-                    pygame.draw.polygon(surface, ACCENT, [(horizontal - 3, vertical - 6), (horizontal + 5, vertical), (horizontal - 3, vertical + 6)])
+                    pygame.draw.polygon(
+                        surface,
+                        ACCENT,
+                        [
+                            (horizontal - 3, vertical - 6),
+                            (horizontal + 5, vertical),
+                            (horizontal - 3, vertical + 6),
+                        ],
+                    )
                 else:
                     for offset in (-4, 2):
-                        pygame.draw.rect(surface, ACCENT, (horizontal + offset, vertical - 5, 3, 10))
+                        pygame.draw.rect(
+                            surface, ACCENT, (horizontal + offset, vertical - 5, 3, 10)
+                        )
             elif action == "capital":
                 pygame.draw.circle(surface, ACCENT, (horizontal, vertical), 5, 1)
                 for start, end in (((-8, 0), (8, 0)), ((0, -8), (0, 8))):
-                    pygame.draw.line(surface, ACCENT, (horizontal + start[0], vertical + start[1]), (horizontal + end[0], vertical + end[1]))
+                    pygame.draw.line(
+                        surface,
+                        ACCENT,
+                        (horizontal + start[0], vertical + start[1]),
+                        (horizontal + end[0], vertical + end[1]),
+                    )
             else:
-                pygame.draw.line(surface, ACCENT, (horizontal - 5, vertical), (horizontal + 5, vertical))
+                pygame.draw.line(
+                    surface, ACCENT, (horizontal - 5, vertical), (horizontal + 5, vertical)
+                )
                 if self.collapsed:
-                    pygame.draw.line(surface, ACCENT, (horizontal, vertical - 5), (horizontal, vertical + 5))
+                    pygame.draw.line(
+                        surface, ACCENT, (horizontal, vertical - 5), (horizontal, vertical + 5)
+                    )
         if not self.collapsed:
             self.rule(surface, 23, width - 24, 64)
             gap = 7
@@ -250,40 +362,94 @@ class CommandPanel:
                 action = ("section", section)
                 self.register(action, rectangle)
                 hovered = self.action_areas[action].collidepoint(self.pointer)
-                image = self.section_tile(section, title, str(index + 1), rectangle.size, hovered, self.active_section == section, self.pressed_action == action)
+                image = self.section_tile(
+                    section,
+                    title,
+                    str(index + 1),
+                    rectangle.size,
+                    hovered,
+                    self.active_section == section,
+                    self.pressed_action == action,
+                )
                 surface.blit(image, rectangle)
                 if section == "information" and self.intelligence.unread:
                     badge = pygame.Rect(rectangle.right - 31, rectangle.y + 8, 23, 20)
                     pygame.draw.rect(surface, (132, 73, 44), badge, border_radius=4)
-                    label = text_image(self.fonts["small"], str(min(99, self.intelligence.unread)), TEXT)
+                    label = text_image(
+                        self.fonts["small"], str(min(99, self.intelligence.unread)), TEXT
+                    )
                     surface.blit(label, label.get_rect(center=badge.center))
             selected = len(self.unit_control.selected)
             status = f"Обрано: {selected}" if selected else "ПАНЕЛЬ КЕРУВАННЯ"
             self.label(surface, status, (23, 154), "small", ACCENT if selected else MUTED)
             hint = "ПКМ — наказ · Ctrl — вибір" if selected else "Пробіл — пауза"
             if drone is not None:
-                hint = "ЛКМ по ворогу — удар · по землі — маршрут" if drone.definition.strike else "ЛКМ — маршрут · Shift — продовжити"
+                hint = (
+                    "ЛКМ по ворогу — удар · по землі — маршрут"
+                    if drone.definition.strike
+                    else "ЛКМ — маршрут · Shift — продовжити"
+                )
             image = text_image(self.fonts["small"], hint, MUTED)
             surface.blit(image, (width - image.get_width() - 23, 154))
         return surface
 
     def render_state(self):
         return (
-            tuple(self.panel_area), tuple(self.inspector_area), self.active_section, self.paused,
-            self.collapsed, self.pages.selected_building, self.pages.construction.page, self.pages.army_page,
-            self.pages.airport.page, self.pages.information.page,
-            self.pages.barracks.page, self.pages.barracks.roster,
-            (id(self.construction_site), round(self.construction_site.construction_progress * 100), int(self.construction_site.construction_remaining)) if self.construction_site is not None and self.active_section == "site" else None,
+            tuple(self.panel_area),
+            tuple(self.inspector_area),
+            self.active_section,
+            self.paused,
+            self.collapsed,
+            self.pages.selected_building,
+            self.pages.construction.page,
+            self.pages.army_page,
+            self.pages.airport.page,
+            self.pages.information.page,
+            self.pages.barracks.page,
+            self.pages.barracks.roster,
+            (
+                (
+                    id(self.construction_site),
+                    round(self.construction_site.construction_progress * 100),
+                    int(self.construction_site.construction_remaining),
+                )
+                if self.construction_site is not None and self.active_section == "site"
+                else None
+            ),
             self.recruitment.revision if self.recruitment is not None else None,
-            tuple((id(unit), self.recruitment.can_disband(self.barracks, unit)) for unit in self.recruitment.garrison(self.barracks).units) if self.recruitment is not None and self.recruitment.valid_barracks(self.barracks) else (),
-            tuple((unit.name, unit.selected, bool(unit.route), unit.planning_target is not None) for unit in self.unit_control.owned_units),
+            (
+                tuple(
+                    (id(unit), self.recruitment.can_disband(self.barracks, unit))
+                    for unit in self.recruitment.garrison(self.barracks).units
+                )
+                if self.recruitment is not None and self.recruitment.valid_barracks(self.barracks)
+                else ()
+            ),
+            tuple(
+                (unit.name, unit.selected, bool(unit.route), unit.planning_target is not None)
+                for unit in self.unit_control.owned_units
+            ),
             tuple(city.position for city in self.owned_cities),
             (self.kingdom.gold, self.kingdom.area),
-            self.intelligence.revision, self.intelligence.unread,
+            self.intelligence.revision,
+            self.intelligence.unread,
             self.fleet.revision if self.fleet is not None else None,
-            self.fleet.production.state_key(self.airport) if self.fleet is not None and self.active_section == "airport" else None,
-            (self.drone_control.selected.identity, int(self.drone_control.selected.remaining), self.drone_control.selected.photographed) if self.drone_control is not None and self.drone_control.selected is not None else None,
-            self.action_at(self.pointer), self.pressed_action,
+            (
+                self.fleet.production.state_key(self.airport)
+                if self.fleet is not None and self.active_section == "airport"
+                else None
+            ),
+            (
+                (
+                    self.drone_control.selected.identity,
+                    int(self.drone_control.selected.remaining),
+                    self.drone_control.selected.photographed,
+                )
+                if self.drone_control is not None and self.drone_control.selected is not None
+                else None
+            ),
+            self.action_at(self.pointer),
+            self.pressed_action,
         )
 
     def render_surfaces(self):
@@ -295,23 +461,60 @@ class CommandPanel:
         self.inspector_surface = None
         if self.active_section:
             self.origin.update(self.inspector_area.topleft)
-            background = self.pages.construction.background(self.inspector_area.size) if self.active_section == "build" else panel_surface(self.inspector_area.size)
+            background = (
+                self.pages.construction.background(self.inspector_area.size)
+                if self.active_section == "build"
+                else panel_surface(self.inspector_area.size)
+            )
             self.inspector_surface = background.copy()
-            title = dict(SECTIONS).get(self.active_section, "Казарми" if self.active_section == "barracks" else "Військовий аеропорт")
+            title = dict(SECTIONS).get(
+                self.active_section,
+                "Казарми" if self.active_section == "barracks" else "Військовий аеропорт",
+            )
             if self.active_section == "site":
-                title = self.construction_site.definition.name if self.construction_site is not None else "Будівництво"
+                title = (
+                    self.construction_site.definition.name
+                    if self.construction_site is not None
+                    else "Будівництво"
+                )
             self.inspector_surface.blit(self.icons[self.active_section], (20, 14))
             self.label(self.inspector_surface, title, (70, 20), "title", ACCENT)
-            subtitles = {"build": "ПРОМИСЛОВІСТЬ ТА ОБОРОНА", "army": "ЗАГОНИ ТА НАКАЗИ", "information": "ПОВІТРЯНА РОЗВІДКА", "airport": "БЕЗПІЛОТНА АВІАЦІЯ · ВИРОБНИЦТВО ТА ВИЛІТ", "barracks": "ПІДГОТОВКА · ПІХОТА ТА БРОНЕТЕХНІКА"}
-            self.label(self.inspector_surface, subtitles.get(self.active_section, "БУДІВЕЛЬНИЙ МАЙДАНЧИК"), (71, 43), "small", MUTED, width=self.inspector_area.w - 130)
-            self.button(self.inspector_surface, (self.inspector_area.w - 48, 21, 25, 25), "×", ("close",))
+            subtitles = {
+                "build": "ПРОМИСЛОВІСТЬ ТА ОБОРОНА",
+                "army": "ЗАГОНИ ТА НАКАЗИ",
+                "information": "ПОВІТРЯНА РОЗВІДКА",
+                "airport": "БЕЗПІЛОТНА АВІАЦІЯ · ВИРОБНИЦТВО ТА ВИЛІТ",
+                "barracks": "ПІДГОТОВКА · ПІХОТА ТА БРОНЕТЕХНІКА",
+            }
+            self.label(
+                self.inspector_surface,
+                subtitles.get(self.active_section, "БУДІВЕЛЬНИЙ МАЙДАНЧИК"),
+                (71, 43),
+                "small",
+                MUTED,
+                width=self.inspector_area.w - 130,
+            )
+            self.button(
+                self.inspector_surface, (self.inspector_area.w - 48, 21, 25, 25), "×", ("close",)
+            )
             if self.active_section != "build":
                 self.rule(self.inspector_surface, 23, self.inspector_area.w - 24, 65)
-            self.pages.draw(self.inspector_surface, pygame.Rect(22, 77, self.inspector_area.w - 44, self.inspector_area.h - 111), self.active_section)
+            self.pages.draw(
+                self.inspector_surface,
+                pygame.Rect(22, 77, self.inspector_area.w - 44, self.inspector_area.h - 111),
+                self.active_section,
+            )
         self.surface_key = self.render_state()
 
     def action_at(self, position):
-        return next((action for action, area in reversed(tuple(self.action_areas.items())) if area.collidepoint(position)), None)
+        return next(
+            (
+                action
+                for action, area in reversed(tuple(self.action_areas.items()))
+                if area.collidepoint(position)
+            ),
+            None,
+        )
 
     def begin_press(self, position, button):
         self.pointer.update(position)
@@ -339,8 +542,10 @@ class CommandPanel:
             destination.x = (self.panel_area.right + self.camera.viewport_size[0]) / 2
             destination.y = min(center.y, (100 + self.camera.viewport_size[1] - 266) / 2)
         self.camera.zoom_anchor.update(center)
-        self.camera.target_zoom = max(self.camera.target_zoom, .8)
-        self.camera.pan_to(pygame.Vector2(position) - (destination - center) / self.camera.target_zoom)
+        self.camera.target_zoom = max(self.camera.target_zoom, 0.8)
+        self.camera.pan_to(
+            pygame.Vector2(position) - (destination - center) / self.camera.target_zoom
+        )
 
     def activate(self, action):
         if self.on_action is not None:
@@ -353,8 +558,10 @@ class CommandPanel:
         elif command == "close":
             self.active_section = None
         elif command == "pause":
-            if self.on_pause is not None:self.on_pause()
-            else:self.paused = not self.paused
+            if self.on_pause is not None:
+                self.on_pause()
+            else:
+                self.paused = not self.paused
         elif command == "capital":
             self.focus(self.city_map.player_capital.position)
         elif command == "collapse":
@@ -363,7 +570,11 @@ class CommandPanel:
             self.layout(self.camera.viewport_size)
         elif command == "rename" and self.rename_callback is not None:
             selected = self.unit_control.selected
-            unit = self.unit_control.units[arguments[0]] if arguments else (selected[0] if len(selected) == 1 else None)
+            unit = (
+                self.unit_control.units[arguments[0]]
+                if arguments
+                else (selected[0] if len(selected) == 1 else None)
+            )
             if unit is not None:
                 self.rename_callback(unit)
         elif command == "place_building" and self.build_callback is not None:
@@ -385,7 +596,13 @@ class CommandPanel:
         elif command == "drone_cancel" and self.fleet is not None:
             self.fleet.production.cancel(self.airport, arguments[0])
         elif command == "drone_focus" and self.fleet is not None and self.drone_control is not None:
-            drones = [drone for drone in self.fleet.drones if drone.airport is self.airport and drone.definition.key == arguments[0] and drone.controllable]
+            drones = [
+                drone
+                for drone in self.fleet.drones
+                if drone.airport is self.airport
+                and drone.definition.key == arguments[0]
+                and drone.controllable
+            ]
             if drones:
                 current = self.drone_control.selected
                 index = (drones.index(current) + 1) % len(drones) if current in drones else 0
@@ -401,7 +618,9 @@ class CommandPanel:
             self.recruitment.cancel_last(self.barracks)
         elif command == "disband" and self.recruitment is not None:
             if 0 <= arguments[0] < len(self.unit_control.units):
-                success, message = self.recruitment.disband(self.barracks, self.unit_control.units[arguments[0]])
+                success, message = self.recruitment.disband(
+                    self.barracks, self.unit_control.units[arguments[0]]
+                )
                 if not success:
                     self.unit_control.notify(message)
         else:
@@ -410,7 +629,9 @@ class CommandPanel:
 
     def handle_key(self, key):
         shortcuts = {pygame.K_F1 + index: section for index, (section, _) in enumerate(SECTIONS)}
-        shortcuts.update({pygame.K_1 + index: section for index, (section, _) in enumerate(SECTIONS)})
+        shortcuts.update(
+            {pygame.K_1 + index: section for index, (section, _) in enumerate(SECTIONS)}
+        )
         if key in shortcuts:
             if self.collapsed:
                 self.collapsed = False
@@ -431,7 +652,12 @@ class CommandPanel:
         self.dock_motion.set(self.dock_surface, self.panel_area.topleft)
         self.dock_motion.draw(screen, duration)
         action = self.action_at(self.pointer)
-        tooltips = {("pause",): "Продовжити · Пробіл" if self.paused else "Пауза · Пробіл", ("capital",): "Перейти до столиці", ("collapse",): "Розгорнути панель" if self.collapsed else "Згорнути панель", ("rename",): "Перейменувати загін · F2"}
+        tooltips = {
+            ("pause",): "Продовжити · Пробіл" if self.paused else "Пауза · Пробіл",
+            ("capital",): "Перейти до столиці",
+            ("collapse",): "Розгорнути панель" if self.collapsed else "Згорнути панель",
+            ("rename",): "Перейменувати загін · F2",
+        }
         caption = tooltips.get(action)
         if caption != self.tooltip_key:
             self.tooltip_key = caption

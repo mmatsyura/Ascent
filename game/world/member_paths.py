@@ -26,7 +26,7 @@ class MemberPaths:
         request = MemberRequest(member, pygame.Vector2(target), pygame.Vector2(center))
         self.requests[id(member)] = request
         self.pending.append(request)
-        member.retry_time = .55
+        member.retry_time = 0.55
 
     def cancel(self, member):
         self.requests.pop(id(member), None)
@@ -53,7 +53,7 @@ class MemberPaths:
                         return result
         return []
 
-    def update(self, units, budget=.0015):
+    def update(self, units, budget=0.0015):
         if not self.pending:
             return
         present = {id(member) for unit in units for member in unit.members}
@@ -80,5 +80,5 @@ class MemberPaths:
                 member = request.member
                 member.detour = result.value or []
                 member.detour_goal = request.target
-                member.retry_time = .3 if member.detour else .75
+                member.retry_time = 0.3 if member.detour else 0.75
                 self.requests.pop(identity, None)

@@ -38,6 +38,8 @@ class GameMenu:
         self.drag_slider = None
 
     def begin(self):
+        if self.app.defeat.achieved:
+            return
         self.fade_frame = self.app.screen.copy()
         self.app.fps_counter.erase(self.fade_frame)
         self.close_age = 0
@@ -71,7 +73,9 @@ class GameMenu:
         if action == "resume":
             self.begin()
         elif action == "new":
-            if self.started:
+            if self.app.defeat.achieved:
+                self.app.restart_requested = True
+            elif self.started:
                 self.parent = self.state
                 self.show("confirm_new")
             else:

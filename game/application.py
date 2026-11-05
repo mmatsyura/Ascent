@@ -39,7 +39,7 @@ from game.ui.map_hints import MapHints
 from game.ui.menu_view import loading_screen
 from game.ui.minimap import Minimap
 from game.ui.unit_rename import UnitRename
-from game.ui.victory import Victory
+from game.ui.victory import Defeat, Victory
 from game.unit_control import UnitControl
 from game.world.building_manager import BuildingManager
 from game.world.buildings import BUILDINGS_BY_KEY
@@ -227,9 +227,16 @@ class Application:
         self.victory.on_continue = self.soundscape.click
         self.restart_requested = False
         self.menu = GameMenu(self)
+        self.defeat = Defeat(self.defeat_home)
         self.command_panel.on_pause = self.menu.pause
         if start_immediately:
             self.menu.begin()
+
+    def defeat_home(self):
+        self.soundscape.click()
+        self.command_panel.paused = True
+        self.menu.started = False
+        self.menu.show("main")
 
     def refresh_visibility(self):
         self.country.update(self.city_map)
@@ -468,7 +475,7 @@ class Application:
             elif event.type == pygame.WINDOWFOCUSLOST:
                 self.focused = False
                 self.cancel_drag()
-                if not self.menu.active:
+                if not self.menu.active and not self.defeat.active:
                     self.menu.pause()
             elif event.type == pygame.WINDOWFOCUSGAINED:
                 self.focused = True
@@ -478,6 +485,8 @@ class Application:
                 self.refresh_layout()
             elif self.menu.active:
                 self.menu.handle(event)
+            elif self.defeat.active:
+                self.defeat.handle_event(event)
             elif self.victory.active:
                 self.victory.handle_event(event)
             elif self.rename_dialog.active:
@@ -611,8 +620,11 @@ class Application:
             self.drone_ambience.update(self.drone_fleet.drones, self.camera, elapsed_seconds, False)
             self.soundscape.update(elapsed_seconds, self.focused, self.menu.state != "main")
             return
-        if self.victory.active:
-            self.victory.update(elapsed_seconds, self.screen.get_size())
+        if self.defeat.check(self.city_map.cities):
+            self.cancel_drag()
+        if self.defeat.active or self.victory.active:
+            outcome = self.defeat if self.defeat.active else self.victory
+            outcome.update(elapsed_seconds, self.screen.get_size())
             self.unit_radio.update(False, self.camera, elapsed_seconds)
             self.mine_ambience.update(self.buildings.buildings, self.camera, elapsed_seconds, False)
             self.drone_ambience.update(self.drone_fleet.drones, self.camera, elapsed_seconds, False)
@@ -781,13 +793,19 @@ class Application:
             self.unit_control,
             blocked,
         )
-        if self.victory.check(self.country.fraction):
+        if self.defeat.check(self.city_map.cities):
+            self.cancel_drag()
+        if not self.defeat.active and self.victory.check(self.country.fraction):
             self.cancel_drag()
             self.soundscape.celebrate()
 
     def draw_frame(self):
         if self.menu.active:
             self.menu.draw(self.screen)
+            self.present_frame()
+            return
+        if self.defeat.active and self.defeat.background is not None:
+            self.defeat.draw(self.screen)
             self.present_frame()
             return
         if self.victory.active and self.victory.background is not None:
@@ -837,7 +855,9 @@ class Application:
         self.command_panel.draw(self.screen, self.interface_seconds)
         self.construction.draw_interface(self.screen, self.interface_seconds)
         self.rename_dialog.draw(self.screen, self.interface_seconds)
-        if self.victory.active:
+        if self.defeat.active:
+            self.defeat.draw(self.screen)
+        elif self.victory.active:
             self.victory.draw(self.screen)
         self.menu.draw_exit(self.screen)
         self.present_frame()

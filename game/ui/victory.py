@@ -248,3 +248,81 @@ class Victory:
                     max(1, round(particle.size)),
                 )
         screen.blit(particles, (0, 0))
+
+
+class Defeat:
+    def __init__(self, on_home):
+        self.active = False
+        self.achieved = False
+        self.elapsed = 0
+        self.background = None
+        self.on_home = on_home
+        self.button = pygame.Rect(0, 0, 280, 44)
+        self.hover = 0
+        self.title = ui_font(58, True)
+        self.body = ui_font(19)
+        self.small = ui_font(15)
+
+    def check(self, cities):
+        if self.achieved or any(city.owner == "blue" for city in cities):
+            return False
+        self.active = self.achieved = True
+        self.elapsed = 0
+        self.background = None
+        return True
+
+    def update(self, duration, size):
+        self.elapsed += max(0, duration)
+        target = float(self.button.collidepoint(pygame.mouse.get_pos()))
+        self.hover += (target - self.hover) * -math.expm1(-max(0, duration) / 0.1)
+
+    def handle_event(self, event):
+        if self.elapsed < 0.65:
+            return True
+        keyboard = event.type == pygame.KEYDOWN and event.key in (
+            pygame.K_RETURN,
+            pygame.K_KP_ENTER,
+            pygame.K_ESCAPE,
+        )
+        clicked = (
+            event.type == pygame.MOUSEBUTTONUP
+            and event.button == 1
+            and self.button.collidepoint(event.pos)
+        )
+        if keyboard or clicked:
+            self.on_home()
+        return True
+
+    def draw(self, screen):
+        if not self.active:
+            return
+        if self.background is None:
+            self.background = screen.copy()
+        elif self.background.get_size() != screen.get_size():
+            self.background = pygame.transform.smoothscale(self.background, screen.get_size())
+        screen.blit(self.background, (0, 0))
+        width, height = screen.get_size()
+        reveal = min(1, self.elapsed / 0.7)
+        reveal = reveal * reveal * (3 - 2 * reveal)
+        veil = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+        veil.fill((12, 12, 19, round(215 * reveal)))
+        screen.blit(veil, (0, 0))
+        card = panel_surface((min(660, width - 48), 390)).copy()
+        center = card.get_width() // 2
+        pygame.draw.line(card, (161, 106, 85), (center - 85, 57), (center + 85, 57), 2)
+        title = self.title.render("ПОРАЗКА", True, (214, 154, 129))
+        card.blit(title, title.get_rect(center=(center, 119)))
+        caption = self.body.render("Усі ваші міста та столицю захоплено", True, TEXT)
+        card.blit(caption, caption.get_rect(center=(center, 191)))
+        detail = self.small.render("Ви більше не контролюєте жодного міста.", True, MUTED)
+        card.blit(detail, detail.get_rect(center=(center, 226)))
+        local_button = pygame.Rect(center - 140, 281, 280, 44)
+        draw_button(card, local_button, self.hover)
+        label = self.body.render("До головного меню", True, TEXT)
+        card.blit(label, label.get_rect(center=local_button.center))
+        hint = self.small.render("Enter / Esc — головне меню", True, MUTED)
+        card.blit(hint, hint.get_rect(center=(center, 352)))
+        position = (width // 2 - center, height // 2 - 195 + round((1 - reveal) * 18))
+        card.set_alpha(round(255 * reveal))
+        screen.blit(card, position)
+        self.button = local_button.move(position)
